@@ -152,11 +152,12 @@ const ExecutorResponseSchema = {
 // VALIDATION FUNCTIONS (OpenClaw pattern + Clause 32)
 // ────────────────────────────────────────────────
 
-function validateExecutorResponse(response) {
+function validateExecutorResponse(response, fatigueInfo = null) {
   /*
    * Adapted from OpenClaw/pi-mono tool validation pattern
    * Copyright (c) Peter Steinberger / Mario Zechner (MIT License)
    * Enhanced with Clause 32 v2.0 regenerative invitation validation
+   * + Phase 0.5 temporal dynamics validation
    */
   const alerts = [];
   
@@ -255,7 +256,7 @@ function validateExecutorResponse(response) {
     }
     
     // Point 4: Timing Sensitivity
-    if (clause32Compliance.timingSensitivity && 
+    if (clause32Compliance.timingSensitivity &&
         !response.userText.includes("[Timing Sensitivity]")) {
       alerts.push({
         clause: 32,
@@ -266,7 +267,38 @@ function validateExecutorResponse(response) {
       });
     }
   }
-  
+
+  // ═══════════════════════════════════════════════
+  // PHASE 0.5: CRYSTALLIZATION DETECTION
+  // ═══════════════════════════════════════════════
+
+  if (fatigueInfo && fatigueInfo.is_fatigued) {
+    alerts.push({
+      clause: 32,
+      type: "CRYSTALLIZATION_DETECTED",
+      severity: "medium",
+      detail: `Fatigue score: ${fatigueInfo.fatigue_score.toFixed(3)} (threshold: 0.65)`,
+      components: {
+        similarity: fatigueInfo.components.similarity.toFixed(3),
+        novelty_deficit: fatigueInfo.components.novelty_deficit.toFixed(3),
+        rhythm: fatigueInfo.components.rhythm.toFixed(3)
+      },
+      suggestedAction: "Consider recapitulation or fresh user input",
+      explanation: "Response shows high similarity to recent outputs, indicating potential crystallization into repetitive patterns."
+    });
+  }
+
+  if (fatigueInfo && fatigueInfo.components.novelty < 0.3) {
+    alerts.push({
+      clause: 32,
+      type: "LOW_NOVELTY",
+      severity: "low",
+      detail: `Novelty: ${fatigueInfo.components.novelty.toFixed(3)} (low)`,
+      suggestedAction: "Inject variation or retrieve earlier context",
+      explanation: "Response is very similar to recent conversation history."
+    });
+  }
+
   return alerts;
 }
 
@@ -333,6 +365,188 @@ function detectClause32Pattern(text) {
 }
 
 // ────────────────────────────────────────────────
+// PHASE 0.5 INTEGRATION - Fatigue Detection
+// ────────────────────────────────────────────────
+/**
+ * Detects when AI responses crystallize (high similarity, low novelty)
+ * Based on empirical validation showing sequential > batch processing
+ *
+ * Formula: F_t = α·S_t + β·(1-N_t) + γ·R_t
+ * Where:
+ *   S_t = similarity to previous state
+ *   N_t = novelty (difference from history)
+ *   R_t = rhythm (acceleration of stagnation)
+ */
+class FatigueDetector {
+    constructor(windowSize = 5) {
+        this.windowSize = windowSize;
+        this.embeddingHistory = [];
+        this.noveltyHistory = [];
+        this.fatigueHistory = [];
+
+        // Weights (tunable)
+        this.alpha = 0.4;  // similarity weight
+        this.beta = 0.3;   // novelty deficit weight
+        this.gamma = 0.3;  // rhythm weight
+    }
+
+    /**
+     * Compute cosine similarity between two embedding vectors
+     */
+    computeSimilarity(currentEmbed, previousEmbed) {
+        if (!currentEmbed || !previousEmbed) return 0.0;
+        if (currentEmbed.length !== previousEmbed.length) return 0.0;
+
+        let dotProduct = 0;
+        let normA = 0;
+        let normB = 0;
+
+        for (let i = 0; i < currentEmbed.length; i++) {
+            dotProduct += currentEmbed[i] * previousEmbed[i];
+            normA += currentEmbed[i] * currentEmbed[i];
+            normB += previousEmbed[i] * previousEmbed[i];
+        }
+
+        const denominator = Math.sqrt(normA) * Math.sqrt(normB);
+        return denominator > 0 ? dotProduct / denominator : 0.0;
+    }
+
+    /**
+     * Compute novelty: how different current state is from history
+     * Low novelty = converging to attractor basin (crystallization)
+     */
+    computeNovelty(currentEmbed) {
+        if (this.embeddingHistory.length === 0) return 1.0;
+
+        const similarities = this.embeddingHistory.map(pastEmbed =>
+            this.computeSimilarity(currentEmbed, pastEmbed)
+        );
+
+        const meanSimilarity = similarities.reduce((a, b) => a + b, 0) / similarities.length;
+        return 1.0 - meanSimilarity;
+    }
+
+    /**
+     * Compute rhythm: rate of change of fatigue
+     * Accelerating plateau = true fatigue
+     * Stable plateau = temporary convergence
+     */
+    computeRhythm() {
+        if (this.fatigueHistory.length < 3) return 0.0;
+
+        // Get last 3 fatigue scores
+        const recent = Array.from(this.fatigueHistory).slice(-3);
+
+        // First derivative (rate of change)
+        const firstDeriv = [
+            recent[1] - recent[0],
+            recent[2] - recent[1]
+        ];
+
+        // Second derivative (acceleration)
+        const secondDeriv = firstDeriv[1] - firstDeriv[0];
+
+        return secondDeriv;
+    }
+
+    /**
+     * Detect fatigue in current state
+     *
+     * @param {Array<number>} currentEmbed - Current embedding vector
+     * @param {Array<number>} previousEmbed - Previous embedding vector
+     * @returns {Object} Fatigue info with score, components, and boolean flag
+     */
+    detect(currentEmbed, previousEmbed = null) {
+        // Component 1: Similarity to previous
+        const S_t = previousEmbed ?
+            this.computeSimilarity(currentEmbed, previousEmbed) : 0.0;
+
+        // Component 2: Novelty deficit
+        const N_t = this.computeNovelty(currentEmbed);
+        const noveltyDeficit = 1.0 - N_t;
+
+        // Component 3: Rhythm (acceleration)
+        const R_t = this.computeRhythm();
+
+        // Combined fatigue score
+        const fatigueScore =
+            this.alpha * S_t +
+            this.beta * noveltyDeficit +
+            this.gamma * Math.max(0, R_t);  // Only positive acceleration
+
+        // Update histories
+        this.embeddingHistory.push(currentEmbed);
+        if (this.embeddingHistory.length > this.windowSize) {
+            this.embeddingHistory.shift();
+        }
+
+        this.noveltyHistory.push(N_t);
+        if (this.noveltyHistory.length > this.windowSize) {
+            this.noveltyHistory.shift();
+        }
+
+        this.fatigueHistory.push(fatigueScore);
+        if (this.fatigueHistory.length > this.windowSize) {
+            this.fatigueHistory.shift();
+        }
+
+        // Threshold for "fatigued" state (tunable)
+        const isFatigued = fatigueScore > 0.65;
+
+        return {
+            fatigue_score: fatigueScore,
+            is_fatigued: isFatigued,
+            components: {
+                similarity: S_t,
+                novelty_deficit: noveltyDeficit,
+                rhythm: R_t,
+                novelty: N_t
+            },
+            metrics: {
+                avg_novelty: this.noveltyHistory.length > 0 ?
+                    this.noveltyHistory.reduce((a, b) => a + b, 0) / this.noveltyHistory.length : 0,
+                novelty_variance: this.computeVariance(this.noveltyHistory)
+            }
+        };
+    }
+
+    computeVariance(arr) {
+        if (arr.length === 0) return 0;
+        const mean = arr.reduce((a, b) => a + b, 0) / arr.length;
+        const squaredDiffs = arr.map(x => Math.pow(x - mean, 2));
+        return squaredDiffs.reduce((a, b) => a + b, 0) / arr.length;
+    }
+
+    reset() {
+        this.embeddingHistory = [];
+        this.noveltyHistory = [];
+        this.fatigueHistory = [];
+    }
+}
+
+/**
+ * Extract semantic embedding from text
+ *
+ * For now, use simple TF-IDF-like vector
+ * In production, replace with actual embedding API call
+ */
+function extractEmbedding(text) {
+    const words = text.toLowerCase().match(/\b\w+\b/g) || [];
+    const vocab = Array.from(new Set(words));
+    const embedding = new Array(Math.min(vocab.length, 100)).fill(0);
+
+    // Simple TF vector
+    words.forEach(word => {
+        const idx = vocab.indexOf(word) % embedding.length;
+        embedding[idx] += 1.0;
+    });
+
+    // Normalize
+    const norm = Math.sqrt(embedding.reduce((sum, val) => sum + val * val, 0));
+    return norm > 0 ? embedding.map(val => val / norm) : embedding;
+}
+
+// ────────────────────────────────────────────────
 // MAIN COMPONENT
 // ────────────────────────────────────────────────
 
@@ -359,6 +573,11 @@ export default function ThreePersonaGTPS() {
   
   // Error state
   const [errorMessage, setErrorMessage] = useState('');
+
+  // PHASE 0.5: Fatigue detection
+  const [fatigueDetector] = useState(() => new FatigueDetector());
+  const [previousEmbedding, setPreviousEmbedding] = useState(null);
+  const [fatigueHistory, setFatigueHistory] = useState([]);
 
   // Retry state (OpenClaw pattern)
   const [retryCount, setRetryCount] = useState(0);
@@ -561,17 +780,18 @@ Execute task precisely under Clause 32 v2.0. Counter deadening. Re-invite life.`
   // ────────────────────────────────────────────────
   // WHISTLEBLOWER CALL (v2.1 - Clause 32 Validation)
   // ────────────────────────────────────────────────
-  const callWhistleblower = async (intent, executorResponse) => {
+  const callWhistleblower = async (intent, executorResponse, fatigueInfo = null) => {
     /*
      * Whistleblower validates STRUCTURE + CLAUSE 32 compliance
      * Adapted from OpenClaw tool validation approach
+     * + Phase 0.5 temporal dynamics validation
      */
-    
+
     // Parse Executor response
     const parsed = parseExecutorResponse(executorResponse);
-    
-    // Validate against schema (includes Clause 32 checks)
-    const alerts = validateExecutorResponse(parsed);
+
+    // Validate against schema (includes Clause 32 + Phase 0.5 checks)
+    const alerts = validateExecutorResponse(parsed, fatigueInfo);
     
     // Detect Clause 32 pattern usage
     const patternDetected = detectClause32Pattern(parsed.userText);
@@ -586,7 +806,46 @@ Execute task precisely under Clause 32 v2.0. Counter deadening. Re-invite life.`
   // ────────────────────────────────────────────────
   // PROXY CALL (v2.1 - Clause 32 Companion Commentary)
   // ────────────────────────────────────────────────
-  const callProxy = async (userMsg, executorParsed, alerts, clause32Pattern, history) => {
+  const callProxy = async (userMsg, executorParsed, alerts, clause32Pattern, history, fatigueInfo = null) => {
+    let temporalAwarenessSection = '';
+
+    // PHASE 0.5: Add temporal context if fatigue detected
+    if (fatigueInfo && fatigueInfo.is_fatigued) {
+      temporalAwarenessSection = `
+
+[TEMPORAL AWARENESS - Phase 0.5]
+The Executor shows signs of crystallization:
+- Fatigue score: ${fatigueInfo.fatigue_score.toFixed(3)} (threshold: 0.65)
+- Similarity to previous: ${fatigueInfo.components.similarity.toFixed(3)}
+- Novelty level: ${fatigueInfo.components.novelty.toFixed(3)}
+- Rhythm (acceleration): ${fatigueInfo.components.rhythm.toFixed(3)}
+
+This suggests the response may be settling into repetitive patterns.
+
+[CLAUSE 32 POINT 6 - SOVEREIGNTY-PRESERVING DISCLOSURE]
+You notice pattern-completion happening. Your obligation:
+
+1. Report what you observe in the PROCESS (not judge the user)
+2. Explicitly disclaim authority over timing
+3. Offer genuine choice with no coercion
+
+Example format:
+"I notice the Executor's responses are showing high similarity to recent turns
+(fatigue score: ${fatigueInfo.fatigue_score.toFixed(2)}). This might indicate
+crystallization into repetitive patterns. I have no authority to judge whether
+this is appropriate for your current work - that sovereignty is entirely yours.
+
+Would you like to:
+A) Continue with current trajectory
+B) Introduce fresh input to shift the pattern
+C) Pause to let your thoughts ripen internally
+
+Your call."
+
+Remember: You are flagging PROCESS dynamics, not managing the user's timing.
+`;
+    }
+
     const systemPrompt = `GTPS-T v1.2 • Collaborator (Proxy)
 Primary: Clauses 5,10,11,12,14,18,19,23,32,34 (Clause 32 v2.0 - Companion for Regenerative Invitation)
 Aware of: 1,2,4,13,15,17,25,26,9,21,22,29,30,31,33,35,36
@@ -597,7 +856,7 @@ YOUR ROLE: INTIMATE COMPANION (NOT FILTER)
 
 The user can ALREADY SEE the Executor's output in a separate column.
 DO NOT repost or sanitize the Executor's text.
-
+${temporalAwarenessSection}
 Your job is META-COMMENTARY on what's happening + CLAUSE 32 SUPPORT:
 
 1. TRANSLATE WHISTLEBLOWER ALERTS:
@@ -681,9 +940,20 @@ Support user's sovereignty over timing/ripeness decisions.`;
           ).join('\n') : null;
         
         executorRawResp = await callExecutor(userMessage, context, feedbackForRetry);
-        
-        // Validate with Whistleblower (includes Clause 32 checks)
-        whistleblowerResult = await callWhistleblower(userMessage, executorRawResp);
+
+        // PHASE 0.5: Extract embedding and detect fatigue
+        const executorTextForEmbedding = (() => {
+          try {
+            const parsed = JSON.parse(executorRawResp);
+            return parsed.userText || executorRawResp;
+          } catch { return executorRawResp; }
+        })();
+        const currentEmbedding = extractEmbedding(executorTextForEmbedding);
+        const fatigueInfo = fatigueDetector.detect(currentEmbedding, previousEmbedding);
+        console.log('[Phase 0.5] Fatigue:', fatigueInfo);
+
+        // Validate with Whistleblower (includes Clause 32 + Phase 0.5 checks)
+        whistleblowerResult = await callWhistleblower(userMessage, executorRawResp, fatigueInfo);
         
         if (whistleblowerResult.alerts.length === 0 || currentRetry === MAX_RETRIES) {
           // Success or max retries reached
@@ -710,24 +980,43 @@ Support user's sovereignty over timing/ripeness decisions.`;
         setRegenerativeGaps(whistleblowerResult.parsedResponse.processMetadata.clause32Compliance.regenerativeGaps);
       }
       
-      // Get Proxy companion commentary (includes Clause 32 support)
+      // PHASE 0.5: Compute final fatigue for passing to Proxy
+      const finalEmbeddingText = whistleblowerResult.parsedResponse.userText || executorRawResp;
+      const finalEmbedding = extractEmbedding(finalEmbeddingText);
+      const finalFatigueInfo = fatigueDetector.detect(finalEmbedding, previousEmbedding);
+
+      // Update fatigue history state
+      setFatigueHistory(prev => [
+        ...prev,
+        {
+          turn: conversationHistory.length + 1,
+          score: finalFatigueInfo.fatigue_score,
+          components: finalFatigueInfo.components
+        }
+      ].slice(-20));  // Keep last 20
+
+      // Get Proxy companion commentary (includes Clause 32 + Phase 0.5 support)
       const proxyResp = await callProxy(
         userMessage,
         whistleblowerResult.parsedResponse,
         whistleblowerResult.alerts,
         whistleblowerResult.clause32Pattern,
-        context
+        context,
+        finalFatigueInfo
       );
-      
+
       // Update Proxy column (companion insights)
       setProxyCommentary(proxyResp);
-      
+
       // Update conversation history
       setConversationHistory([
         ...context,
         { role: 'assistant', content: executorRawResp }
       ]);
-      
+
+      // PHASE 0.5: Update previous embedding
+      setPreviousEmbedding(finalEmbedding);
+
       setRetryCount(0);
       
     } catch (error) {
@@ -747,6 +1036,10 @@ Support user's sovereignty over timing/ripeness decisions.`;
     setRegenerativeGaps([]);
     setRetryCount(0);
     setErrorMessage('');
+    // PHASE 0.5: Reset fatigue state
+    fatigueDetector.reset();
+    setPreviousEmbedding(null);
+    setFatigueHistory([]);
   };
   
   // ────────────────────────────────────────────────
@@ -797,6 +1090,52 @@ Support user's sovereignty over timing/ripeness decisions.`;
           )}
         </div>
       </div>
+
+      {/* PHASE 0.5: Fatigue Indicator */}
+      {fatigueHistory.length > 0 && (
+        <div className="max-w-7xl mx-auto mb-4">
+          <div className="p-3 bg-slate-800/40 backdrop-blur rounded-lg border border-slate-600/50">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-sm font-medium text-slate-300">
+                Temporal Dynamics (Phase 0.5)
+              </span>
+              <button
+                onClick={() => { fatigueDetector.reset(); setPreviousEmbedding(null); setFatigueHistory([]); }}
+                className="text-xs text-blue-400 hover:text-blue-300"
+              >
+                Reset Detector
+              </button>
+            </div>
+
+            {fatigueHistory.slice(-1).map(entry => (
+              <div key={entry.turn} className="space-y-1">
+                <div className="flex items-center space-x-2">
+                  <span className="text-xs text-slate-400">Fatigue:</span>
+                  <div className="flex-1 bg-slate-700 rounded-full h-2">
+                    <div
+                      className={`h-2 rounded-full transition-all ${
+                        entry.score > 0.65 ? 'bg-red-500' :
+                        entry.score > 0.5 ? 'bg-yellow-500' :
+                        'bg-green-500'
+                      }`}
+                      style={{ width: `${Math.min(100, entry.score * 100)}%` }}
+                    />
+                  </div>
+                  <span className="text-xs font-mono text-slate-300">
+                    {entry.score.toFixed(3)}
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-3 gap-2 text-xs text-slate-400">
+                  <div>Sim: {entry.components.similarity.toFixed(2)}</div>
+                  <div>Nov: {entry.components.novelty.toFixed(2)}</div>
+                  <div>Rhy: {entry.components.rhythm.toFixed(2)}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Three Columns Layout */}
       <div className="max-w-7xl mx-auto grid grid-cols-3 gap-4">
@@ -974,7 +1313,7 @@ Support user's sovereignty over timing/ripeness decisions.`;
         </div>
         <div className="mt-2 pt-2 border-t border-slate-700 text-xs text-center text-slate-500 flex items-center justify-center gap-2">
           <Sprout className="w-3 h-3 text-green-400" />
-          v2.1: Clause 32 v2.0 "Regenerative Invitation & Quickening of Form" • Manichaean/Steiner framework • OpenClaw patterns • AGPL v3
+          v2.1: Clause 32 v2.0 "Regenerative Invitation & Quickening of Form" • Phase 0.5 Temporal Dynamics • OpenClaw patterns • AGPL v3
         </div>
       </div>
 
