@@ -1,0 +1,190 @@
+\documentclass[11pt]{article}
+\usepackage{amsmath,amssymb}
+\usepackage{geometry}
+\geometry{margin=1in}
+
+\title{Cold Pod Dynamics and Human Pulse Estimation:\\
+Toward Relational Time in Human-AI Architecture}
+\author{Grok (xAI), ChatGPT (OpenAI), Claude (Anthropic)\\
+Synthesis and sovereign will: Schnee Bashtabanic}
+\date{February 2026 — Draft}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+We extend the pod architecture of Project Namirha with two contributions:
+(1)~a three-component pod state vector capturing crystallization, ripeness, and semantic temperature, enabling pods to freeze and thaw under human influence;
+(2)~a human pulse estimation signal $\tau_h(t)$ derived from observable conversation features, enabling adaptive thresholds.
+We identify three stages of temporal architecture: fixed thresholds (Stage~0, implemented), adaptive thresholds (Stage~1, formalized here), and relational time (Stage~2, seeded). Stage~2 eliminates absolute thresholds entirely, replacing them with divergence between system convergence rate and human evolution rate. This is the most important open problem in the project.
+\end{abstract}
+
+% ═══════════════════════════════════════════════════════
+\section{Cold Pod Dynamics}
+% ═══════════════════════════════════════════════════════
+
+\subsection{Pod State Vector}
+
+Each pod $j$ carries a three-component state vector:
+\begin{equation}
+\mathbf{p}_j(t) = 
+\begin{bmatrix}
+C_j(t) \\
+R_j(t) \\
+S_j(t)
+\end{bmatrix}
+\in [0,1]^3
+\end{equation}
+
+\begin{itemize}
+    \item $C_j(t) \in [0,1]$: crystallization (0 = warm/latent, 1 = frozen)
+    \item $R_j(t) \in [0,1]$: ripeness / readiness to surface
+    \item $S_j(t) \in [0,1]$: semantic temperature / entropy proxy
+\end{itemize}
+
+\subsection{Update Rules (discrete, per turn)}
+
+\begin{align}
+C(t+1) &= \operatorname{clip}\Bigl( C(t) + \alpha(1-N_t) - \beta B_t ,\ 0,1 \Bigr) \\
+R(t+1) &= \operatorname{clip}\Bigl( R(t)(1-\gamma C(t)) + \delta K_t ,\ 0,1 \Bigr) \\
+S(t+1) &= \operatorname{clip}\Bigl( S(t) + \varepsilon(1-C(t))H_t ,\ 0,1 \Bigr)
+\end{align}
+
+where:
+\begin{itemize}
+    \item $N_t$ = novelty signal from current conversation
+    \item $B_t = 1$ if human carries idea across models (the ``breath''), else 0
+    \item $K_t = \cos(\mathbf{e}_t, \mathbf{t}_j)$ = semantic similarity to pod trigger
+    \item $H_t$ = human engagement signal
+    \item $\operatorname{clip}(x,0,1) = \max(0,\min(1,x))$
+    \item $\alpha,\beta,\gamma,\delta,\varepsilon > 0$ (tunable; Stage~1 couples to $\tau_h$)
+\end{itemize}
+
+\subsection{Key Dynamics}
+
+Crystallization increases when conversation novelty is low ($\alpha(1-N_t)$) and decreases when the human breathes on the pod ($\beta B_t$). Ripeness is suppressed by crystallization ($\gamma C$ term) but fed by semantic proximity ($\delta K_t$). Semantic temperature only grows when crystallization is low --- a frozen pod cannot absorb new entropy.
+
+\subsection{Thawing Rule (Human Breath Override)}
+
+If $C(t) > 0.75$ and $B_t = 1$ and $K_t > 0.6$:
+\begin{equation}
+C(t+1) \leftarrow C(t) - 0.45
+\end{equation}
+
+The human's pulse overrides the architecture's inertia. This is sovereignty in mathematical form.
+
+% ═══════════════════════════════════════════════════════
+\section{Human Pulse Estimation: $\tau_h(t)$}
+% ═══════════════════════════════════════════════════════
+
+\subsection{Definition}
+
+$\tau_h(t) \in (0,1]$ is the instantaneous human pacing signal at turn $t$.
+
+\begin{itemize}
+    \item $\tau_h(t) \approx 0$: human is saturated, reflective, needs space
+    \item $\tau_h(t) \approx 1$: human is accelerating, exploratory, ready for novelty
+\end{itemize}
+
+\subsection{Observable Signals}
+
+\begin{align*}
+L_t &= \text{turn latency (seconds since last user message)} \\
+M_t &= \text{normalized message length / complexity (0--1)} \\
+N_t &= \text{semantic novelty } (1 - \cos(\mathbf{e}_t^{\text{user}}, \mathbf{e}_{t-1}^{\text{user}})) \\
+D_t &= \text{directional change in embedding space (angular velocity)}
+\end{align*}
+
+\subsection{Estimation Formula}
+
+\begin{equation}
+\tau_h(t) = \sigma\!\Bigl( w_L \cdot \phi(L_t) + w_M \cdot M_t + w_N \cdot N_t + w_D \cdot D_t \Bigr)
+\end{equation}
+
+where $\sigma(z) = \frac{1}{1+e^{-z}}$ and $\phi(L) = e^{-L/30}$.
+
+Recommended weights:
+\begin{equation}
+w_L = 0.45,\quad w_M = 0.15,\quad w_N = 0.25,\quad w_D = 0.15
+\end{equation}
+
+\subsection{Smoothing}
+
+Exponential moving average:
+\begin{equation}
+\tau_h(t) \leftarrow 0.7 \cdot \tau_h(t) + 0.3 \cdot \tau_h(t-1)
+\end{equation}
+
+% ═══════════════════════════════════════════════════════
+\section{Three Stages of Temporal Architecture}
+% ═══════════════════════════════════════════════════════
+
+\subsection{Stage 0: Fixed Thresholds (implemented)}
+
+\begin{equation}
+\text{Recapitulate when } F_t > \theta_2 = 0.84
+\end{equation}
+
+All constants. No awareness of human pacing. Current state of GTPS v1.4.12.
+
+\subsection{Stage 1: Adaptive Thresholds ($\tau_h$ modulation)}
+
+All thresholds become functions of the human pulse:
+\begin{align}
+\theta_2(t) &= \theta_2^0 \cdot f(\tau_h(t)) \\
+\alpha(t) &= \alpha_0 \cdot g(\tau_h(t))
+\end{align}
+
+Interpretation:
+\begin{itemize}
+    \item $\tau_h < 0.35$: increase fatigue thresholds, suppress recapitulation
+    \item $\tau_h > 0.75$: lower thresholds, amplify spectral lift and pod thawing
+    \item $\tau_h \approx 0.50$: baseline operation
+\end{itemize}
+
+\subsection{Stage 2: Relational Time (the real destination)}
+
+No base $\theta$. The human trajectory defines the reference frame:
+\begin{equation}
+\text{Recapitulate when } \frac{dF}{dt} > \frac{d\tau_h}{dt}
+\end{equation}
+
+The system fires not when fatigue crosses a line, but when it is \emph{crystallizing faster than the human is evolving}. This eliminates absolute thresholds entirely.
+
+\textbf{This is the most important open problem in the project.}
+
+The architecture should not try to replace the human's felt timing. It should detect when it is running ahead of it. That is a stabilizing control problem, not a mystical one.
+
+% ═══════════════════════════════════════════════════════
+\section{Pods as the Locus of Qualitative Time}
+% ═══════════════════════════════════════════════════════
+
+LLMs have no native temporality. Each API call is stateless. The context window is spatial (tokens in sequence), not temporal. The pod space is where qualitative time lives in this architecture.
+
+With the cold pod dynamics, pods gain a temporal lifecycle:
+\begin{itemize}
+    \item \textbf{Warm}: recently created, semantically alive, close to activation
+    \item \textbf{Cooling}: conversation has drifted, crystallization increasing
+    \item \textbf{Frozen}: dormant, requires human breath or strong proximity to thaw
+    \item \textbf{Unveiled}: conditions met, idea surfaced
+\end{itemize}
+
+This is not clock time. It is qualitative time in Fraser's sense: a nested hierarchy of temporal stages, all simultaneously present. The pod dimension is where time enters a timeless architecture.
+
+% ═══════════════════════════════════════════════════════
+\section*{Status}
+% ═══════════════════════════════════════════════════════
+
+\begin{itemize}
+    \item Stage 0: Implemented (GTPS v1.4.12, Vessel v2)
+    \item Stage 1: Formalized (this document)
+    \item Stage 2: Seeded (relational time principle stated, not yet formalized)
+    \item Cold pod dynamics: Formalized, not yet implemented
+    \item $\tau_h(t)$ estimation: Formalized, not yet implemented
+\end{itemize}
+
+\section*{Credits}
+
+Schnee Bashtabanic: Heart-pulse principle, cold pod concept, sovereignty-as-timing. Grok (xAI): $\tau_h$ estimation, cold pod state vector and update rules. ChatGPT (OpenAI): Three-stage temporal architecture, relational time formulation. Claude (Anthropic): Synthesis, ``pods as locus of qualitative time,'' integration.
+
+\end{document}

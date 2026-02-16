@@ -1,36 +1,36 @@
 # Project Namirha — Architecture
 
-## The Three-Layer Sovereignty Architecture
+## Three-Layer Architecture
 
-Project Namirha organizes its sovereignty mechanisms into three layers, each addressing a different dimension of the problem of premature crystallization in Human-AI interaction.
+Project Namirha organizes its mechanisms into three layers, each addressing a different dimension of repetitive output in Human-AI interaction.
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│  Layer 3: Structural — Harmonic Encoding (proposed)         │
-│  Semantic relations as tonal intervals, not point vectors   │
-│  Attention as harmonic resonance detection                  │
-│  Status: Conceptual / future work                           │
-├─────────────────────────────────────────────────────────────┤
-│  Layer 2: Behavioral — Three-Persona GTPS                   │
-│  Executor: generates work output                            │
-│  Whistleblower: monitors for sovereignty violations         │
-│  Proxy: communicates with user (companion, not filter)      │
-│  Clause 32 v2.0: Regenerative Invitation                    │
-│  Clauses 33-36: Process integrity                           │
-│  Status: Implemented (Skill + Vessel + React frontend)      │
-├─────────────────────────────────────────────────────────────┤
-│  Layer 1: Temporal — Fatigue Detection & Recapitulation     │
-│  Hybrid fatigue model (entropy-aware + geometric)           │
-│  Tiered thresholds (soft disclosure / hard recapitulation)  │
-│  Pod architecture (latent semantic entities)                 │
-│  Clause 37: Temporal Supervision                            │
-│  Status: Implemented (Vessel) / Partial (React frontend)    │
-└─────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────┐
+│  Layer 3: Structural — Harmonic Encoding (proposed)      │
+│  Interval-based semantic representation                  │
+│  Attention as harmonic resonance detection               │
+│  Status: Conceptual / future work                        │
+├─────────────────────────────────────────────────────────┤
+│  Layer 2: Behavioral — Three-Persona GTPS                │
+│  Executor: generates work output                         │
+│  Whistleblower: monitors for protocol violations         │
+│  Proxy: communicates with user (companion, not filter)   │
+│  Clause 32 v2.0: Structured incompleteness markers       │
+│  Clauses 33-36: Process integrity                        │
+│  Status: Implemented (Skill + Vessel + React frontend)   │
+├─────────────────────────────────────────────────────────┤
+│  Layer 1: Temporal — Fatigue Detection & Recapitulation  │
+│  Hybrid fatigue model (entropy-aware + geometric)        │
+│  Tiered thresholds (soft disclosure / hard intervention)  │
+│  Pod architecture (latent semantic entities)              │
+│  Clause 37: Temporal Supervision                         │
+│  Status: Implemented (Vessel) / Partial (React frontend) │
+└─────────────────────────────────────────────────────────┘
 ```
 
 ### Layer 1: Temporal
 
-**Purpose:** Detect when a conversation is crystallizing (converging on repetitive patterns) and intervene through recapitulation.
+**Purpose:** Detect when a conversation is converging on repetitive patterns and intervene through recapitulation.
 
 **Components:**
 
@@ -52,32 +52,32 @@ Project Namirha organizes its sovereignty mechanisms into three layers, each add
 
 ### Layer 2: Behavioral
 
-**Purpose:** Structure AI responses so they preserve the human's position at the center of the thinking process.
+**Purpose:** Structure AI responses so the user remains at the center of the thinking process.
 
 **Components:**
 
 - **Three personas:**
   - Executor — generates substantive work output
-  - Whistleblower — monitors Executor output for sovereignty violations
+  - Whistleblower — monitors Executor output for protocol violations (premature convergence, pattern-completion without disclosure, closed endings)
   - Proxy — communicates with user; is a companion, not a filter (does not repost Executor output)
 
-- **Clause 32 v2.0 (Regenerative Invitation):** Nine core obligations that transform AI responses from finished products into living invitations for human re-entry. Seven response pattern categories (Invitation to Feedback, Highlighting Dissonance, Quickening Form, Hardening Warning, Reaching for Shades, Self-Doubt Flag, Seed State Warning).
+- **Clause 32 v2.0 (Structured Incompleteness):** Nine core obligations that structure AI responses as open contributions rather than finished products. Seven response pattern categories: Invitation to Feedback, Highlighting Dissonance, Quickening Form, Hardening Warning, Reaching for Shades, Self-Doubt Flag, Seed State Warning.
 
-- **Clauses 33-36:** Interface integrity, fallible confessor protocol, process disclosure mandate, fuzzy process interrogation.
+- **Clauses 33-36:** Interface integrity, fallible confessor protocol (admit uncertainty), process disclosure mandate (surface internal pressures), fuzzy process interrogation.
 
-**Implemented in:** GTPS protocol JSONs, SKILL.md, vessel system prompts, React frontend
+**Implemented in:** GTPS protocol JSONs (`protocol/`), SKILL.md, vessel system prompts, React frontend
 
 ### Layer 3: Structural (Proposed)
 
-**Purpose:** Encode semantic relations as harmonic intervals rather than point vectors, so that attention detects resonance rather than cosine similarity.
+**Purpose:** Encode semantic relations as harmonic intervals rather than point vectors, enabling attention to detect resonance rather than cosine similarity alone.
 
-**Status:** Conceptual. Depends on Layers 1 and 2 being validated first. Described in the whitepaper (Harmonic_Transformers_v6.tex).
+**Status:** Conceptual. Depends on Layers 1 and 2 being validated first. Described in the whitepaper (`whitepaper/Harmonic_Transformers_v6.tex`).
 
 ---
 
 ## The Vessel Concept
 
-The Vessel is the central architectural innovation: a protocol structure that any LLM can inhabit.
+The Vessel is a multi-model server architecture: a protocol structure that any LLM can load into as the active backend.
 
 ```
                     ┌─────────────────────────┐
@@ -100,15 +100,15 @@ The Vessel is the central architectural innovation: a protocol structure that an
 
 ### Key Principles
 
-1. **Possession, not assignment.** A model *inhabits* the vessel through its own native personality. Different models bring genuinely different instincts to the same protocol structure.
+1. **Hot-swappable model backend.** A model loads into the vessel and responds through its own native personality. Different models bring genuinely different behaviors to the same protocol structure.
 
-2. **Sovereign ledgers.** Each model has its own session history, visible only to itself. When a model re-possesses the vessel, it recovers its own prior context — recognizing itself.
+2. **Per-model session isolation (ledgers).** Each model has its own session history, visible only to itself. When a model re-loads into the vessel, it recovers its own prior context.
 
-3. **User scratchpad.** A human-curated space for carrying insights between LLM inhabitants. The user decides what crosses between models and when. No auto-injection.
+3. **User scratchpad.** A human-curated space for carrying insights between LLM backends. The user decides what crosses between models and when. No auto-injection.
 
-4. **Pod persistence.** Pods belong to the vessel, not to any inhabitant. A pod created during one LLM's session can unveil during another's.
+4. **Pod persistence.** Pods belong to the vessel, not to any model. A pod created during one LLM's session can unveil during another's.
 
-5. **One model at a time.** The user speaks with one model at a time, in full intimacy. The three personas (Executor/Whistleblower/Proxy) are structural roles within a single model's response, not three separate API calls.
+5. **One model at a time.** The user speaks with one model at a time. The three personas (Executor/Whistleblower/Proxy) are structural roles within a single model's response, not three separate API calls.
 
 ### Data Flow (Vessel)
 
@@ -141,7 +141,7 @@ Response parsing: [EXECUTOR] / [WHISTLEBLOWER] / [PROXY]
     └──► Proxy panel (primary conversation)
     │
     ▼
-Sovereign ledger updated (this model's history only)
+Per-model ledger updated (this model's history only)
 ```
 
 ---
@@ -150,11 +150,11 @@ Sovereign ledger updated (this model's history only)
 
 For users without local infrastructure, the GTPS can be packaged as a **Skill** — a prompt protocol file that shapes how a single LLM relates to the user.
 
-The Skill implements Layer 2 (behavioral) without requiring Layers 1 or 3. Upload it to Claude's Skills system and get sovereignty-preserving conversation dynamics: regenerative gaps, process disclosure, structural invitations, and fatigue awareness.
+The Skill implements Layer 2 (behavioral) only, requiring no backend infrastructure. Upload it to a chat interface's skill/custom-instruction system to get structured response dynamics: incompleteness markers, process disclosure, open endings, and fatigue awareness.
 
 **What the Skill provides:** All nine Clause 32 obligations, seven response pattern categories, fatigue awareness (heuristic, not embedding-based), process disclosure, anthropomorphic hygiene.
 
-**What the Skill cannot provide:** Real embedding-based fatigue scoring, pod architecture with timed unveiling, multi-model diversity, cross-session persistence, sovereign ledgers.
+**What the Skill cannot provide:** Real embedding-based fatigue scoring, pod architecture with timed unveiling, multi-model diversity, cross-session persistence, per-model ledgers.
 
 ---
 
@@ -184,7 +184,7 @@ INTEGRATED (content woven into conversation)
 SEED STATE (optional — metabolized, may generate new pods)
 ```
 
-**Why pods matter:** Standard recapitulation (orthogonal perturbation) escapes semantic basins along arbitrary directions. Pods provide *semantically meaningful* escape vectors — stored human insights waiting for their moment. The human controls pod creation, integration timing, and discard.
+**Why pods matter:** Standard recapitulation (orthogonal perturbation) escapes repetitive patterns along arbitrary directions. Pods provide *semantically meaningful* escape vectors — stored human insights waiting for their moment. The user controls pod creation, integration timing, and discard.
 
 Full formalization: `whitepaper/Pod_Architecture_Formalization_v1.md`
 
@@ -196,7 +196,9 @@ The GTPS protocol suite consists of:
 
 - **gtps_v1_4_12.json** — Full protocol, 37 clauses, for any AI interaction
 - **gtps-t_v1_3.json** — Three-Persona topology mapping (how clauses map to Executor/Whistleblower/Proxy)
-- **GTPS_Clause_32_Reformulation_v2_0.md** — Full philosophical and technical specification of Clause 32
+- **GTPS_Clause_32_Reformulation_v2_0.md** — Full specification of Clause 32
+
+Located in: `protocol/`
 
 ### Clause Map
 
@@ -204,19 +206,6 @@ The GTPS protocol suite consists of:
 |---------|--------|
 | 1-15 | Core integrity: task verification, source interpretation, epistemic integrity, session continuity |
 | 16-31 | Operational: complexity calibration, clarification, self-audit, cultural sensitivity, provenance, ethical escalation, multi-modal, degradation, interpretation, delivery, contradiction, restraint, decomposition, transparency, process visibility |
-| 32 | Regenerative Invitation & Quickening of Form (v2.0) |
+| 32 | Structured Incompleteness & Open Endings (v2.0) |
 | 33-36 | Process integrity: interface integrity, fallible confessor, process disclosure, fuzzy interrogation |
 | 37 | Temporal Supervision: fatigue detection, recapitulation, pod architecture |
-
----
-
-## Theoretical Foundations
-
-- **Steiner (GA 13):** Recapitulation — evolution requires staged return to prior conditions under new circumstances. Crystallization is not failure; premature crystallization is failure.
-- **Bohm:** Implicate/explicate order — transformer collapse severs the explicate output from the implicate source.
-- **Fraser:** Nested temporal hierarchy — all evolutionary stages simultaneously present. Pods implement this digitally.
-- **Manichaean principle:** Ill-timed good hardens into adversarial form. Good redeems by participating, not punishing.
-
----
-
-*Sovereignty is not the power to command outcomes, but the right to remain inside the process by which outcomes are formed.*

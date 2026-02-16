@@ -113,7 +113,7 @@ class Fatigue:
         dp=s._dp(); sc=s._sc(); cc=s._cc()
         f=max(0,min(1,.35*dp+.35*sc+.3*cc))
         st="hard" if f>THETA_HARD else "soft" if f>THETA_SOFT else "fresh"
-        return round(f,4),{"dp":round(dp,4),"sc":round(sc,4),"cc":round(cc,4),"rhythm":round(cc,4)},st
+        return round(f,4),{"dp":round(dp,4),"sc":round(sc,4),"cc":round(cc,4)},st
     def _dp(s):
         if len(s.v)<2: return 0
         a,b=s.v[-2],s.v[-1]; na,nb=np.linalg.norm(a),np.linalg.norm(b)
@@ -125,14 +125,127 @@ class Fatigue:
             t=np.sum(S); return float(np.sum(S[:min(3,len(S))])/t) if t>0 else 0
         except: return 0
     def _cc(s):
-        # CC (Curvature Collapse) = Rhythm component. Measures
-        # whether the conversation's breathing pattern has flattened.
-        # See white paper Section 6.1 (Rhythm-Signature Gap).
         if len(s.v)<3: return 0
         a,b,c=s.v[-3],s.v[-2],s.v[-1]
         cr=np.linalg.norm((c-b)-(b-a)); bs=np.linalg.norm(b-a)**3
         return float(1/(cr/bs+1e-8)) if bs>0 else 0
     def reset(s): s.e=[]; s.v=[]
+
+# ═══════════════════════════════════════════════════════
+# HUMAN PULSE ESTIMATION — τ_h(t)
+# Stage 1: Adaptive thresholds coupled to human pacing.
+# See docs/HEART-PULSE-PRINCIPLE.md for the full theory.
+#
+# τ_h(t) ∈ (0,1] estimates the human's current tempo:
+#   ≈ 0 → reflective, saturated, needs space
+#   ≈ 1 → accelerating, exploratory, ready for novelty
+#
+# All fatigue thresholds and pod activation thresholds
+# are modulated by τ_h so the architecture keeps time
+# with the human's pulse, not its own fixed constants.
+#
+# Math: Grok (xAI). Three-stage concept: ChatGPT (OpenAI).
+# Integration: Claude (Anthropic).
+# Principle: Schnee Bashtabanic.
+# ═══════════════════════════════════════════════════════
+
+class PulseEstimator:
+    """Estimates the human pacing signal τ_h(t) from observable conversation features."""
+    
+    def __init__(s):
+        s.w_L = 0.45   # latency weight (pauses mean reflection)
+        s.w_M = 0.15   # message length weight
+        s.w_N = 0.25   # semantic novelty weight
+        s.w_D = 0.15   # directional change weight
+        s.smoothing = 0.7  # EMA coefficient
+        s.tau = 0.5    # initial neutral pulse
+        s.last_time = None
+        s.last_user_emb = None
+        s.prev_user_emb = None
+    
+    def update(s, msg, emb, timestamp=None):
+        """Update pulse estimate from a new user message.
+        
+        Args:
+            msg: raw user message text
+            emb: embedding vector of the user message
+            timestamp: time.time() when message arrived
+        
+        Returns:
+            tau_h: current pulse estimate in (0, 1]
+        """
+        if timestamp is None:
+            timestamp = time.time()
+        
+        # L_t: turn latency → φ(L) = e^(-L/30)
+        if s.last_time is not None:
+            latency = timestamp - s.last_time
+            phi_L = np.exp(-latency / 30.0)
+        else:
+            phi_L = 0.5  # neutral on first turn
+        
+        # M_t: normalized message length (cap at 500 chars)
+        M_t = min(len(msg) / 500.0, 1.0)
+        
+        # N_t: semantic novelty (1 - cosine similarity to previous user turn)
+        if s.last_user_emb is not None:
+            na, nb = np.linalg.norm(emb), np.linalg.norm(s.last_user_emb)
+            if na > 0 and nb > 0:
+                cos_sim = float(np.dot(emb, s.last_user_emb) / (na * nb))
+                N_t = 1.0 - max(0, cos_sim)
+            else:
+                N_t = 0.5
+        else:
+            N_t = 0.5  # neutral on first turn
+        
+        # D_t: directional change (angular velocity between embedding deltas)
+        if s.prev_user_emb is not None and s.last_user_emb is not None:
+            v_prev = s.last_user_emb - s.prev_user_emb
+            v_curr = emb - s.last_user_emb
+            na, nb = np.linalg.norm(v_prev), np.linalg.norm(v_curr)
+            if na > 0 and nb > 0:
+                cos_ang = float(np.dot(v_prev, v_curr) / (na * nb))
+                D_t = 1.0 - max(0, cos_ang)  # high when direction changes
+            else:
+                D_t = 0.5
+        else:
+            D_t = 0.5  # neutral until enough history
+        
+        # Combine with sigmoid
+        z = s.w_L * phi_L + s.w_M * M_t + s.w_N * N_t + s.w_D * D_t
+        raw_tau = 1.0 / (1.0 + np.exp(-z))
+        
+        # Exponential moving average
+        s.tau = s.smoothing * raw_tau + (1.0 - s.smoothing) * s.tau
+        
+        # Update history
+        s.prev_user_emb = s.last_user_emb
+        s.last_user_emb = emb.copy()
+        s.last_time = timestamp
+        
+        return round(float(s.tau), 4)
+    
+    def modulate_thresholds(s):
+        """Return modulated thresholds based on current pulse.
+        
+        When τ_h is low (reflective): thresholds rise → system is more patient
+        When τ_h is high (accelerating): thresholds drop → system is more responsive
+        
+        Returns:
+            (theta_soft, theta_hard, pod_high, pod_soft)
+        """
+        # Modulation factor: 0.8 at τ_h=1 (lower thresholds), 1.2 at τ_h=0 (higher thresholds)
+        mod = 1.2 - 0.4 * s.tau
+        return (
+            round(min(0.95, THETA_SOFT * mod), 4),
+            round(min(0.98, THETA_HARD * mod), 4),
+            round(min(0.98, POD_THETA_HIGH * mod), 4),
+            round(max(0.30, POD_THETA_SOFT * (2.0 - mod)), 4)  # inverse: easier pod access when reflective
+        )
+    
+    def reset(s):
+        s.tau = 0.5; s.last_time = None
+        s.last_user_emb = None; s.prev_user_emb = None
 
 # ═══════════════════════════════════════════════════════
 # PODS
@@ -281,6 +394,7 @@ class Vessel:
     def __init__(s):
         os.makedirs(DATA_DIR, exist_ok=True)
         s.model = None; s.sid = None; s.fatigue = Fatigue()
+        s.pulse = PulseEstimator()
         s.pods = Pods(); s.ledger = SovereignLedger(os.path.join(DATA_DIR, "ledgers"))
         s.scratchpad = Scratchpad(os.path.join(DATA_DIR, "scratchpad.json"))
         s.history = []; s.turn = 0; s.own_memory = ""
@@ -289,7 +403,7 @@ class Vessel:
     def possess(s, model):
         if model not in AVAILABLE_MODELS: return {"error": f"Unknown: {model}"}
         s._save_pods()
-        s.model = model; s.fatigue.reset(); s.history = []; s.turn = 0
+        s.model = model; s.fatigue.reset(); s.pulse.reset(); s.history = []; s.turn = 0
         
         # Check for prior sessions — let the LLM recognize itself
         prior_sessions = s.ledger.get_sessions(model)
@@ -328,10 +442,19 @@ class Vessel:
         if not s.model: return {"error":"No inhabitant. Choose a model."}
         s.turn += 1; t0 = time.time()
         
+        # Compute embedding and update fatigue
         emb = get_emb(msg); s.fatigue.update(emb)
-        f_score, f_comp, f_status = s.fatigue.score()
+        f_score, f_comp, _ = s.fatigue.score()  # ignore fixed status
         
-        pod_result = s.pods.detect(emb, f_score)
+        # Stage 1: Estimate human pulse and modulate thresholds
+        tau_h = s.pulse.update(msg, emb, t0)
+        theta_soft, theta_hard, pod_high, pod_soft = s.pulse.modulate_thresholds()
+        
+        # Apply adaptive thresholds (Stage 1) instead of fixed (Stage 0)
+        f_status = "hard" if f_score > theta_hard else "soft" if f_score > theta_soft else "fresh"
+        
+        # Pod detection with pulse-modulated thresholds
+        pod_result = s._detect_pod_adaptive(emb, f_score, pod_high, pod_soft)
         pod_event = None; extra = ""
         if pod_result:
             pid, sim, content = pod_result; s.pods.unveil(pid)
@@ -376,8 +499,24 @@ class Vessel:
             "raw": raw,
             "meta": {"model":s.model,"name":info["name"],"turn":s.turn,
                      "fatigue":{"score":f_score,"status":f_status,"components":f_comp},
+                     "pulse":{"tau_h":tau_h,
+                              "thresholds":{"soft":theta_soft,"hard":theta_hard,
+                                            "pod_high":pod_high,"pod_soft":pod_soft}},
                      "pod":pod_event,"elapsed":round(time.time()-t0,2),"session_id":s.sid}
         }
+    
+    def _detect_pod_adaptive(s, emb, f_score, pod_high, pod_soft):
+        """Pod detection with pulse-modulated thresholds (Stage 1)."""
+        best = None
+        for k, v in s.pods.p.items():
+            if v["state"] != "latent": continue
+            e = v["emb"]; ne = np.linalg.norm(e); nemb = np.linalg.norm(emb)
+            if ne == 0 or nemb == 0: continue
+            sim = float(np.dot(emb, e) / (nemb * ne))
+            if sim > pod_high or (f_score > THETA_HARD and sim > pod_soft):
+                if not best or sim > best[1]:
+                    best = (k, sim, v["content"])
+        return best
     
     def _extract(s, text, section):
         pattern = rf'\[{section}\]\s*(.*?)(?=\[(?:EXECUTOR|WHISTLEBLOWER|PROXY)\]|$)'
@@ -562,7 +701,7 @@ body{font-family:'Segoe UI',-apple-system,system-ui,sans-serif;background:#f4f4f
       <h3 id="proxy-title">Proxy</h3>
       <div class="proxy-status">
         <span class="d dd" id="fd" style="display:inline-block;width:8px;height:8px;border-radius:50%"></span>
-        <span id="fl">Fatigue: —</span> · <span id="tl">Turn 0</span>
+        <span id="fl">Fatigue: —</span> · <span id="pl">Pulse: —</span> · <span id="tl">Turn 0</span>
       </div>
     </div>
     
@@ -646,8 +785,9 @@ async function go() {
     
     const f=d.meta.fatigue;
     document.getElementById('fd').className='d '+(f.status==='hard'?'dr':f.status==='soft'?'dy':'dg');
-    const rhy=f.components&&f.components.rhythm!==undefined?' · Rhythm: '+f.components.rhythm:'';
-    document.getElementById('fl').textContent='Fatigue: '+f.score+' ('+f.status+')'+rhy;
+    document.getElementById('fl').textContent='Fatigue: '+f.score+' ('+f.status+')';
+    var p=d.meta.pulse;
+    if(p) document.getElementById('pl').textContent='Pulse: '+p.tau_h+' (θ:'+p.thresholds.soft+'/'+p.thresholds.hard+')';
     document.getElementById('tl').textContent='Turn '+d.meta.turn;
     loadLedger();
   }catch(e){ld.remove();pm('s','Error: '+e.message)}
