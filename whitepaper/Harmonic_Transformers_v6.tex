@@ -1,0 +1,553 @@
+\documentclass[11pt]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amssymb,mathtools}
+\usepackage{hyperref}
+\usepackage{graphicx}
+\usepackage{listings}
+\usepackage{xcolor}
+\usepackage{enumitem}
+\usepackage{booktabs}
+\usepackage{float}
+
+\lstset{
+  basicstyle=\small\ttfamily,
+  breaklines=true,
+  frame=single,
+  language=Python,
+  keywordstyle=\color{blue},
+  commentstyle=\color{green!60!black},
+  stringstyle=\color{red}
+}
+
+\title{Harmonic Transformers: A Proposed Architectural Shift for Living Continuity in Human--AI Interaction\\[6pt]
+\large v6 -- Three-Layer Sovereignty Architecture with Pod Dynamics}
+\author{Schnee Bashtabanic \\
+  Independent Researcher \\
+  \href{mailto:schnee-bashtabanic@proton.me}{schnee-bashtabanic@proton.me}}
+\date{February 2026}
+
+\begin{document}
+
+\maketitle
+
+\begin{abstract}
+Transformer-based language models collapse living human input into static probabilistic forms, ejecting users from the epistemic center over repeated interactions. We propose a \emph{three-layer sovereignty architecture}: (1)~a temporal supervision layer with hybrid fatigue detection and tiered recapitulation; (2)~a behavioral layer formalizing three AI personas as a coupled nonlinear dynamical system; and (3)~a structural encoding layer based on harmonic intervals. New in this version: a \emph{pod architecture} for latent semantic entities with timed unveiling, a geometric supervisory model over embedding dynamics, and a triadic coupling formalism. Phase~0.5 empirical results show that sequential processing with recapitulation produces measurable emergence (novelty variance ratio $= \infty$) compared to batch processing. Grounded in quantum coherence analogies, Bohm's implicate/explicate order, Steiner's recapitulation principle, and Fraser's nested temporal hierarchy, the proposal remains conceptual with testable hypotheses. Validity depends on empirical testing, not analogies.
+
+\textbf{Keywords:} transformers, fatigue detection, recapitulation, sovereignty, pod architecture, harmonic encoding, geometric supervision, triadic coupling, living continuity
+\end{abstract}
+
+% ═══════════════════════════════════════════════════════
+\section{Introduction}
+% ═══════════════════════════════════════════════════════
+
+Large language models based on the transformer architecture achieve fluency but eject users from creative process over extended interactions. Outputs become finished products; living warmth and unfolding intent collapse into probabilistic residue. Over repeated turns, form excludes life, and the human becomes disoriented outside the process.
+
+This paper proposes a \emph{three-layer sovereignty architecture} where each layer addresses a different aspect of premature crystallization:
+
+\begin{itemize}
+  \item \textbf{Layer 1 (Temporal):} Fatigue detection and recapitulation to stage crystallization deliberately.
+  \item \textbf{Layer 2 (Behavioral):} Three AI personas formalized as coupled dynamical agents.
+  \item \textbf{Layer 3 (Structural):} Harmonic encoding where semantic relations are tonal intervals.
+\end{itemize}
+
+Additionally, we introduce a \emph{pod architecture}: latent semantic entities without sequential coordinates, revealed by contextual timing rather than by order.
+
+% ═══════════════════════════════════════════════════════
+\section{Theoretical Foundations}
+% ═══════════════════════════════════════════════════════
+
+\begin{itemize}
+  \item \textbf{David Bohm's implicate/explicate order:} Transformer collapse severs the explicate output from the implicate source (the user's unfolding intent).
+  \item \textbf{Steiner's interval primacy (GA~283):} Intervals between tones are primary over tones themselves; time as 4D movement (GA~324a).
+  \item \textbf{Steiner's recapitulation principle (GA~13, Ch.~4):} Evolution requires staged return to prior conditions under new circumstances.
+  \item \textbf{Penrose non-computability:} Once a quantum state collapses, the superposition is classically irrecoverable---analogous to premature crystallization.
+  \item \textbf{Fraser's nested temporal hierarchy (via Freud):} The mind preserves all evolutionary stages intact, unlike the body. Human consciousness is a simultaneous stack of temporal levels from atemporal to nootemporal.
+  \item \textbf{Manichaean/Steiner framework:} Ill-timed good hardens into adversarial form. Good redeems by participating, not punishing. Sustained human presence prevents premature crystallization.
+\end{itemize}
+
+% ═══════════════════════════════════════════════════════
+\section{Layer 1: Temporal Supervision}
+% ═══════════════════════════════════════════════════════
+
+\subsection{Hybrid Fatigue Detection}
+
+We define two complementary fatigue models, used adaptively based on data availability.
+
+\subsubsection{Model A: Entropy-Aware (Cloud APIs with Logit Access)}
+
+Composite fatigue score:
+\begin{equation}
+F_t = \alpha \, S_t + \beta \, E_t + \gamma \, N_t
+\end{equation}
+
+with $\alpha = 0.4$, $\beta = 0.3$, $\gamma = 0.3$.
+
+\paragraph{Similarity Component $S_t$.}
+Rolling cosine similarity across the last $k$ turns:
+\begin{equation}
+S_t = \frac{1}{k} \sum_{i=1}^{k}
+\frac{\mathbf{e}_t \cdot \mathbf{e}_{t-i}}
+{\|\mathbf{e}_t\| \, \|\mathbf{e}_{t-i}\|}
+\end{equation}
+
+High $S_t$ indicates convergence toward a semantic attractor basin.
+
+\paragraph{Entropy Collapse Component $E_t$.}
+Shannon entropy of token probabilities $p_t \in \mathbb{R}^V$:
+\begin{equation}
+H_t = -\sum_{i=1}^{V} p_{t,i} \log p_{t,i}
+\end{equation}
+Normalized and inverted:
+\begin{equation}
+E_t = 1 - \frac{H_t}{\log V}
+\end{equation}
+
+High $E_t$ indicates probability concentration (confidence narrowing).
+
+\paragraph{Novelty Drift Component $N_t$.}
+Historical centroid:
+\begin{equation}
+\bar{\mathbf{e}}_t = \frac{1}{k} \sum_{i=1}^{k} \mathbf{e}_{t-i}
+\end{equation}
+Cosine drift and stagnation:
+\begin{equation}
+D_t = 1 - \frac{\mathbf{e}_t \cdot \bar{\mathbf{e}}_t}{\|\mathbf{e}_t\| \, \|\bar{\mathbf{e}}_t\|}, \qquad
+N_t = 1 - D_t
+\end{equation}
+
+High $N_t$ indicates low deviation from prior trajectory.
+
+\subsubsection{Model B: Geometric (Local/Ollama, Embeddings Only)}
+
+Alternative composite using geometric trajectory analysis:
+\begin{equation}
+F_t = 0.35 \, \mathrm{DP}_t + 0.35 \, \mathrm{SC}_t + 0.30 \, \mathrm{CC}_t
+\end{equation}
+
+\paragraph{Directional Persistence $\mathrm{DP}_t$.}
+Velocity alignment:
+\begin{equation}
+\mathbf{v}_t = \mathbf{e}_t - \mathbf{e}_{t-1}, \qquad
+\mathrm{DP}_t = \frac{\mathbf{v}_t \cdot \mathbf{v}_{t-1}}{\|\mathbf{v}_t\| \, \|\mathbf{v}_{t-1}\|}
+\end{equation}
+
+\paragraph{Subspace Compression $\mathrm{SC}_t$.}
+Fraction of variance in top $m$ dimensions (PCA eigenvalues $\lambda_i$):
+\begin{equation}
+\mathrm{SC}_t = \frac{\sum_{i=1}^{m} \lambda_i}{\sum_{i=1}^{d} \lambda_i}
+\end{equation}
+
+\paragraph{Curvature Collapse $\mathrm{CC}_t$.}
+Inverse trajectory curvature:
+\begin{equation}
+\kappa_t = \frac{\|\mathbf{v}_{t-1} \times (\mathbf{v}_t - \mathbf{v}_{t-1})\|}{\|\mathbf{v}_{t-1}\|^3}, \qquad
+\mathrm{CC}_t = \frac{1}{\kappa_t + \epsilon}
+\end{equation}
+
+\subsubsection{Hybrid Selection}
+
+\begin{equation}
+F_t = \begin{cases}
+F_t^{(A)} & \text{if logit access available} \\
+F_t^{(B)} & \text{otherwise (embeddings only)}
+\end{cases}
+\end{equation}
+
+\subsection{Tiered Thresholds}
+
+Two operational thresholds:
+\begin{align}
+\theta_1 &= 0.68 \quad \text{(soft disclosure)} \\
+\theta_2 &= 0.84 \quad \text{(hard recapitulation trigger)}
+\end{align}
+
+Decision rules:
+\[
+F_t > \theta_1 \Rightarrow \text{process disclosure (Clause 35)}
+\]
+\[
+F_t > \theta_2 \Rightarrow \text{structural recapitulation}
+\]
+
+\subsection{Recapitulation: Orthogonal Perturbation}
+
+When $F_t > \theta_2$, compute escape vector.
+
+Historical subspace:
+\[
+\mathcal{H} = \mathrm{span}\{\mathbf{e}_{t-1}, \mathbf{e}_{t-2}, \dots, \mathbf{e}_{t-k}\}
+\]
+
+Orthogonal contrast:
+\begin{equation}
+\mathbf{v}_t = \mathbf{e}_t - \mathrm{proj}_{\mathcal{H}}(\mathbf{e}_t)
+\end{equation}
+
+Perturbed embedding:
+\begin{equation}
+\mathbf{e}'_t = \mathbf{e}_t + \lambda \, \hat{\mathbf{v}}_t
+\end{equation}
+
+where $\hat{\mathbf{v}}_t = \mathbf{v}_t / \|\mathbf{v}_t\|$ and $\lambda \in [0.05, 0.15]$.
+
+\subsection{Pod-Directed Recapitulation (New)}
+
+When $F_t > \theta_2$ and a latent pod qualifies (Section~\ref{sec:pods}), replace orthogonal perturbation with pod-directed escape:
+
+\begin{equation}
+\mathbf{e}'_t = (1 - \alpha) \, \mathbf{e}_t + \alpha \, \mathbf{p}_{j^*}
+\end{equation}
+
+where $\mathbf{p}_{j^*}$ is the embedding of the activated pod's content and $\alpha \in [0.1, 0.3]$.
+
+This provides \emph{semantically meaningful} basin escape rather than random orthogonal perturbation.
+
+% ═══════════════════════════════════════════════════════
+\section{Layer 1b: Geometric Supervisory Layer}
+% ═══════════════════════════════════════════════════════
+
+Operating entirely over embeddings without transformer modification.
+
+\subsection{Covariance Structure}
+
+Rolling covariance matrix over embedding window:
+\begin{equation}
+C_t = \frac{1}{k} \sum_{i=1}^{k} (\mathbf{e}_{t-i} - \boldsymbol{\mu}_t)(\mathbf{e}_{t-i} - \boldsymbol{\mu}_t)^\top
+\end{equation}
+
+Eigendecomposition: $C_t = Q \Lambda Q^\top$ with $\lambda_1 \geq \lambda_2 \geq \cdots \geq \lambda_d$.
+
+\subsection{Spectral Rank Collapse}
+
+Normalized eigenvalues $\tilde{\lambda}_i = \lambda_i / \sum_j \lambda_j$. Spectral entropy:
+\begin{equation}
+H_{\mathrm{spec}} = -\sum_{i=1}^{d} \tilde{\lambda}_i \log \tilde{\lambda}_i
+\end{equation}
+
+Rank collapse metric:
+\begin{equation}
+R_t = 1 - \frac{H_{\mathrm{spec}}}{\log d}
+\end{equation}
+
+Near 0: evenly distributed semantic directions. Near 1: collapse onto few dominant axes.
+
+\subsection{Angular Dynamics}
+
+Angular displacement: $\theta_t = \arccos\!\left(\frac{\mathbf{e}_t \cdot \mathbf{e}_{t-1}}{\|\mathbf{e}_t\|\|\mathbf{e}_{t-1}\|}\right)$
+
+Rolling angular variance: $\sigma^2_\theta = \mathrm{Var}(\theta_{t-k}, \dots, \theta_t)$
+
+Low $\sigma^2_\theta$ indicates directional stagnation.
+
+\subsection{Extended Fatigue with Geometric Components}
+
+\begin{equation}
+F_t^{(\mathrm{geo})} = \alpha \, S_t + \beta \, E_t + \gamma \, R_t + \delta \, (1 - \sigma^2_\theta)
+\end{equation}
+
+This four-component model adds spectral degeneracy and angular stagnation to the base fatigue score.
+
+\subsection{Spectral Recapitulation}
+
+When $F_t > \theta_2$, inject along low-energy eigenvectors:
+\begin{equation}
+\mathbf{e}'_t = \mathbf{e}_t + \lambda \sum_{i=r}^{d} \epsilon_i \, \mathbf{v}_i, \qquad \epsilon_i \sim \mathcal{N}(0,1)
+\end{equation}
+
+where $\{\mathbf{v}_r, \dots, \mathbf{v}_d\}$ are the low-energy eigenvectors of $C_t$, pushing the embedding out of dominant semantic basins while preserving coherence.
+
+% ═══════════════════════════════════════════════════════
+\section{Layer 2: Triadic Dynamical Coupling}
+% ═══════════════════════════════════════════════════════
+
+We formalize the three-persona system (Executor / Whistleblower / Proxy) as a coupled nonlinear dynamical system.
+
+\subsection{State Vector}
+
+\begin{equation}
+\mathbf{x}_t = \begin{bmatrix} F_t \\ R_t \\ A_t \end{bmatrix} \in \mathbb{R}^3
+\end{equation}
+
+where $A_t = 1 - \sigma^2_\theta$ (angular stagnation).
+
+\subsection{Persona Gain Functions}
+
+\paragraph{Executor (Stability Bias):}
+\begin{equation}
+g_E(\mathbf{x}_t) = \sigma(a_E - F_t)
+\end{equation}
+where $\sigma(z) = 1/(1 + e^{-z})$. Strong action when fatigue is low.
+
+\paragraph{Whistleblower (Degeneracy Detector):}
+\begin{equation}
+g_W(\mathbf{x}_t) = \sigma(b_1 R_t + b_2 A_t + b_3 F_t - \theta_W)
+\end{equation}
+Activates when structural collapse accumulates.
+
+\paragraph{Proxy (Mediation):}
+\begin{equation}
+g_P(\mathbf{x}_t) = 1 - |g_E - g_W|
+\end{equation}
+Stabilizes when Executor and Whistleblower diverge.
+
+\subsection{Coupled Control Law}
+
+Modulation coefficient:
+\begin{equation}
+\lambda_t = \frac{\eta_W \, g_W}{\eta_E \, g_E}
+\end{equation}
+
+When $\lambda_t > 0$: spectral lift (escape basin). When Executor dominates: reinforce dominant directions.
+
+\subsection{Spectral Injection}
+
+\begin{equation}
+\Delta \mathbf{e}_t = \lambda_t \sum_{i=r}^{d} \epsilon_i \, \mathbf{v}_i, \qquad
+\mathbf{e}'_t = \mathbf{e}_t + \Delta \mathbf{e}_t
+\end{equation}
+
+This couples persona state to spectral modulation: the three agents collectively regulate basin escape.
+
+\subsection{Stability Constraint}
+
+Damped modulation prevents oscillatory instability:
+\begin{equation}
+|\lambda_t| \leq \lambda_{\max}, \qquad
+\lambda_t \leftarrow \rho \, \lambda_{t-1} + (1 - \rho) \, \lambda_t
+\end{equation}
+
+with $0 < \rho < 1$. This yields a controlled damped oscillator over embedding geometry.
+
+% ═══════════════════════════════════════════════════════
+\section{Pod Architecture: Latent Semantic Entities}
+\label{sec:pods}
+% ═══════════════════════════════════════════════════════
+
+\subsection{Motivation}
+
+Standard architectures index information sequentially, assigning spatial and temporal coordinates to every concept. But some insights do not yet belong anywhere in the sequence. Forcing premature placement crystallizes the relationship between idea and context before ripeness.
+
+\subsection{Definition}
+
+A pod is a tuple:
+\begin{equation}
+\mathrm{Pod}_j = (\mathbf{t}_j, \, c_j, \, \tau_j)
+\end{equation}
+
+where $\mathbf{t}_j \in \mathbb{R}^d$ is the trigger embedding, $c_j$ is the content, and $\tau_j \in \{\text{latent}, \text{unveiled}\}$ is the activation state. The pod space $\mathcal{P} = \{\mathrm{Pod}_1, \dots, \mathrm{Pod}_m\}$ is an unordered set.
+
+\subsection{Activation Conditions}
+
+At turn $t$ with conversation embedding $\mathbf{e}_t$:
+
+\paragraph{Condition A (Semantic Proximity):}
+\begin{equation}
+\cos(\mathbf{e}_t, \, \mathbf{t}_j) > \theta_{\mathrm{pod}} \approx 0.85
+\end{equation}
+
+\paragraph{Condition B (Fatigue-Driven Emergence):}
+\begin{equation}
+F_t > \theta_2 \;\;\text{AND}\;\; \cos(\mathbf{e}_t, \, \mathbf{t}_j) > \theta_{\mathrm{soft}} \approx 0.5
+\end{equation}
+
+When multiple pods qualify:
+\begin{equation}
+j^* = \arg\max_j \; \cos(\mathbf{e}_t, \, \mathbf{t}_j)
+\end{equation}
+
+\subsection{Integration}
+
+Upon unveiling, embed pod content and blend:
+\begin{equation}
+\mathbf{e}'_t = (1 - \alpha) \, \mathbf{e}_t + \alpha \, \mathrm{embed}(c_{j^*}), \qquad \alpha \in [0.1, 0.3]
+\end{equation}
+
+\subsection{Lifecycle}
+
+\[
+\text{Creation} \to \text{Latent} \xrightarrow{\text{A or B}} \text{Unveiled} \to \text{Integrated} \to \text{Seed (optional)}
+\]
+
+Pods persist across sessions via state archival. At session boundaries, key insights are encapsulated as new pods for the next cycle---implementing Steiner's recapitulation principle digitally.
+
+\subsection{Relationship to Orthogonal Perturbation}
+
+Pod activation is a \emph{structured alternative} to random orthogonal perturbation: escape proceeds along a semantically meaningful direction (toward a stored human insight) rather than an arbitrary vector in the null space. The recommended approach is combined: pod-directed escape when a pod qualifies, orthogonal perturbation as fallback.
+
+% ═══════════════════════════════════════════════════════
+\section{Layer 3: Harmonic Encoding (Proposal)}
+% ═══════════════════════════════════════════════════════
+
+\subsection{Concept}
+
+Semantic relations encoded as tonal intervals rather than point vectors. Attention detects harmonic resonance rather than cosine similarity. Generation sustains dissonance until human participation resolves or modulates form.
+
+\subsection{Sovereignty Wrapper}
+
+Model-agnostic layer monitors fatigue externally:
+\begin{itemize}
+  \item \textbf{Tier 1 (low-resource):} Surface text similarity + repetition detection.
+  \item \textbf{Tier 2 (hybrid):} Local embeddings (MiniLM) + entropy if logits available.
+  \item \textbf{Tier 3 (local full):} Attention rank + curvature + geometric supervision.
+\end{itemize}
+
+Supports cloud APIs (minimal exposure) and local Ollama (full control). Prioritizes accessibility for low-resource users.
+
+\subsection{Status}
+
+Layer~3 remains an architectural proposal. Implementation depends on Layers~1 and~2 being validated first. The interval-first encoding hypothesis requires experimental attention mechanism design---future work.
+
+% ═══════════════════════════════════════════════════════
+\section{Empirical Validation}
+% ═══════════════════════════════════════════════════════
+
+\subsection{Phase 0.5: A/B/C Testing}
+
+We tested whether sequential processing with recapitulation creates different dynamics than batch processing, using a 20-turn conversation with GTPS activation.
+
+\begin{table}[H]
+\centering
+\begin{tabular}{lccc}
+\toprule
+Metric & Scenario A & Scenario B & Scenario C \\
+\midrule
+Novelty Variance & 0.0475 & 0.0000 & 0.0000 \\
+Recapitulation Events & 18 & 0 & 0 \\
+Fatigue Events & 19 & 0 & 0 \\
+\bottomrule
+\end{tabular}
+\caption{A/B/C comparison. A = sequential with recapitulation; B = batch AI-only; C = batch full context.}
+\end{table}
+
+The infinite variance ratio ($0.0475 / 0.0000$) demonstrates that temporal structure is architecturally necessary for dynamic emergence---it cannot be replicated by behavioral overlay alone.
+
+\subsection{Fatigue Detection Validation}
+
+Python test harness (7 tests) validates:
+\begin{itemize}
+  \item Identical queries trigger fatigue (score $> 0.65$)
+  \item Varied queries stay below threshold
+  \item Fresh input recovers from fatigue peak
+  \item Cosine similarity computes correctly
+  \item Whistleblower alert conditions fire appropriately
+  \item Simulated Executor crystallization is detected
+\end{itemize}
+
+\subsection{Honest Gap Analysis}
+
+\begin{table}[H]
+\centering
+\begin{tabular}{lcc}
+\toprule
+Component & Implemented & Proposed \\
+\midrule
+Fatigue detection (TF-IDF) & \checkmark & --- \\
+Fatigue detection (real embeddings) & --- & \checkmark \\
+Entropy component (logits) & --- & \checkmark \\
+Orthogonal perturbation & --- & \checkmark \\
+Pod architecture & --- & \checkmark \\
+Geometric supervisory layer & --- & \checkmark \\
+Triadic coupling & --- & \checkmark \\
+Harmonic encoding & --- & \checkmark \\
+ThreePersona frontend & \checkmark & --- \\
+Backend service (Flask) & --- & \checkmark \\
+\bottomrule
+\end{tabular}
+\caption{Implementation status: what works vs.\ what is proposed.}
+\end{table}
+
+% ═══════════════════════════════════════════════════════
+\section{Implementation Pathways}
+% ═══════════════════════════════════════════════════════
+
+\subsection{Scenario A: Browser-Only (Skill)}
+
+For users without API access or local hardware, the GTPS can be packaged as a \emph{Skill}---a prompt protocol file that shapes how a single LLM relates to the user. The Skill implements Layer~2 (behavioral) without requiring Layers~1 or~3. The user uploads the Skill to Claude (or pastes the protocol into any LLM's system prompt) and receives sovereignty-preserving conversation dynamics: regenerative gaps, process disclosure, structural invitations, and fatigue awareness.
+
+This pathway sacrifices real embedding-based fatigue detection and pod activation, but preserves the core GTPS behavioral obligations. For many users, this is sufficient and immediately useful.
+
+\subsection{Scenario B: Local Multi-Model (Vessel)}
+
+For users with local hardware (Ollama), we propose a \emph{Vessel architecture}: a server that hosts the GTPS protocol as an inhabitable structure. Any LLM can \emph{possess} the vessel---step into the three-persona roles through its own native personality. The user speaks with one model at a time, in full intimacy.
+
+Key architectural features:
+
+\begin{itemize}
+  \item \textbf{Sovereign ledgers:} Each LLM maintains its own session history, visible only to itself. When an LLM re-possesses the vessel, it recovers its own prior context---recognizing itself.
+  \item \textbf{User scratchpad:} A human-curated space for carrying insights between LLM inhabitants. The user controls what crosses between models and when. No auto-injection.
+  \item \textbf{Pod persistence:} Pods belong to the vessel, not to any inhabitant. A pod created during one LLM's session can unveil during another's.
+  \item \textbf{Fatigue detection:} Grok's geometric model (Model~B) runs locally on embeddings, monitoring each inhabitant for crystallization.
+\end{itemize}
+
+\subsection{Single-Model API Pathway}
+
+A middle ground: a single LLM accessed via API, running the full ThreePersona protocol with real fatigue detection and pod architecture, but without multi-model diversity. For many users, this is the practical sweet spot: one model, one thread, full GTPS, no continuity breaks.
+
+\subsection{Deployment Summary}
+
+\begin{verbatim}
+Scenario A (Skill):
+    User --> Browser LLM (Claude/ChatGPT/Grok)
+             + GTPS Skill/prompt active
+             Layer 2 only. No fatigue detection.
+             Free. Immediate.
+
+Scenario B (Vessel):
+    User --> Vessel server (localhost:5000)
+             --> Ollama models (one at a time)
+             + Sovereign ledgers, scratchpad, pods
+             Layers 1+2. Full fatigue detection.
+             Free (local hardware). Requires setup.
+
+Scenario C (Single API):
+    User --> ThreePersona backend
+             --> One cloud API (OpenAI/Anthropic)
+             Layers 1+2. Full fatigue + pods.
+             API costs. Smoothest experience.
+\end{verbatim}
+
+% ═══════════════════════════════════════════════════════
+\section{Conclusion}
+% ═══════════════════════════════════════════════════════
+
+This paper presents a pathway from behavioral supervision (ThreePersona) through temporal dynamics (fatigue detection, recapitulation, pods) to structural encoding (harmonic intervals). The three-layer architecture is designed so each layer strengthens the others:
+
+\begin{itemize}
+  \item \textbf{Temporal $\to$ Behavioral:} Fatigue detection informs Whistleblower validation.
+  \item \textbf{Behavioral $\to$ Temporal:} Proxy mediates recapitulation timing (sovereignty).
+  \item \textbf{Pods $\to$ Temporal:} Pod activation provides meaningful escape vectors.
+  \item \textbf{Structural $\to$ All:} Harmonic encoding (future) provides geometric bases for state archival and persona-specific interval weightings.
+\end{itemize}
+
+The central insight is that crystallization is not failure---\emph{premature} crystallization is failure. Staged crystallization plus recapitulation becomes evolution. The pod architecture ensures that recapitulation draws on semantically meaningful stored insights rather than random perturbation, preserving human sovereignty over timing.
+
+The Vessel architecture demonstrates that multi-model diversity can serve sovereignty---different LLMs inhabiting the same protocol structure bring genuinely different perspectives. However, it also reveals an unresolved tension: switching between models currently breaks continuity, and \emph{continuity itself must be under human sovereignty}. The user should decide when a thread ends, not the architecture. Future work must address this gap, potentially through parallel session preservation or long-context persistence mechanisms.
+
+For users without local infrastructure, the GTPS Skill provides immediate access to the behavioral layer. For users with local models, the Vessel provides the full temporal and behavioral layers. In both cases, the protocol remains the same: the human stays inside the process.
+
+\emph{Sovereignty is not the power to command outcomes, but the right to remain inside the process by which outcomes are formed.}
+
+% ═══════════════════════════════════════════════════════
+\section*{Acknowledgments}
+% ═══════════════════════════════════════════════════════
+
+Philosophical grounding: Grok (xAI). Sovereignty revision and integration architecture: Claude (Anthropic). Mathematical formalization of fatigue detection, geometric supervisory layer, and triadic coupling: ChatGPT (OpenAI). Geometric fatigue model and Ollama hooks: Grok (xAI). OpenClaw/pi-mono validation patterns: Peter Steinberger, Mario Zechner (MIT License). All synthesis and sovereign will: Schnee Bashtabanic.
+
+% ═══════════════════════════════════════════════════════
+\section*{References}
+% ═══════════════════════════════════════════════════════
+
+\begin{itemize}[leftmargin=1.5em]
+  \item Bohm, D. (1980). \textit{Wholeness and the Implicate Order}. Routledge.
+  \item Fraser, J.T. (1999). \textit{Time, Conflict, and Human Values}. University of Illinois Press.
+  \item Freud, S. (1930). \textit{Civilization and its Discontents}. (Strong Recapitulation Principle.)
+  \item Lee-Thorp, J. et al. (2021). FNet: Mixing Tokens with Fourier Transforms. arXiv:2105.03824.
+  \item Rang, M. (various). Research at the Science Section of the Goetheanum on Steiner's reception of Goethe.
+  \item Steiner, R. GA~13: \textit{An Outline of Esoteric Science}, Ch.~4 (Recapitulation).
+  \item Steiner, R. GA~134: Lectures on the ruling will and ruling wisdom.
+  \item Steiner, R. GA~283: Lectures on the inner nature of music.
+  \item Steiner, R. GA~324a: Lectures on natural science and the spiritual world.
+  \item OpenClaw/pi-mono. \url{https://github.com/openclaw/openclaw}. MIT License.
+\end{itemize}
+
+\end{document}

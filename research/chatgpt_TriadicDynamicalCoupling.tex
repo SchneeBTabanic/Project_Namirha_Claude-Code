@@ -1,0 +1,196 @@
+\documentclass[11pt]{article}
+
+\usepackage{amsmath, amssymb}
+\usepackage{geometry}
+\geometry{margin=1in}
+
+\title{Layer 2: Triadic Dynamical Coupling Model}
+\author{}
+\date{}
+
+\begin{document}
+
+\maketitle
+
+\section*{Overview}
+
+This document formalizes the three-persona system (Executor / Whistleblower / Proxy)
+as a coupled nonlinear dynamical system operating over structural spectral state variables.
+
+The harmonic structural layer (Layer 3) provides measurable quantities:
+
+\begin{itemize}
+    \item $S_t$ --- cosine repetition
+    \item $E_t$ --- entropy collapse
+    \item $R_t$ --- spectral rank collapse
+    \item $A_t$ --- angular stagnation term $(1 - \sigma^2_\theta)$
+\end{itemize}
+
+Structural fatigue is defined as:
+
+\begin{equation}
+F_t = \alpha S_t + \beta E_t + \gamma R_t + \delta A_t
+\end{equation}
+
+\section{State Vector Definition}
+
+Define the system state:
+
+\begin{equation}
+x_t =
+\begin{bmatrix}
+F_t \\
+R_t \\
+A_t
+\end{bmatrix}
+\in \mathbb{R}^3
+\end{equation}
+
+Fatigue, rank collapse, and angular stagnation form the core structural state.
+
+Each persona reads and acts on this state differently.
+
+\section{Persona Gain Functions}
+
+Let:
+
+\begin{itemize}
+    \item $g_E$ --- Executor gain
+    \item $g_W$ --- Whistleblower gain
+    \item $g_P$ --- Proxy gain
+\end{itemize}
+
+\subsection{Executor (Stability Bias)}
+
+\begin{equation}
+g_E(x_t) = \sigma(a_E - F_t)
+\end{equation}
+
+where $\sigma(z) = \frac{1}{1 + e^{-z}}$.
+
+The Executor acts strongly when fatigue is low.
+
+\subsection{Whistleblower (Degeneracy Detector)}
+
+\begin{equation}
+g_W(x_t) =
+\sigma(b_1 R_t + b_2 A_t + b_3 F_t - \theta_W)
+\end{equation}
+
+The Whistleblower activates when structural collapse accumulates.
+
+\subsection{Proxy (Mediation)}
+
+\begin{equation}
+g_P(x_t) = 1 - |g_E - g_W|
+\end{equation}
+
+The Proxy stabilizes when Executor and Whistleblower diverge.
+
+\section{Coupled Control Law}
+
+Define the modulation coefficient:
+
+\begin{equation}
+\lambda_t =
+\frac{\eta_W g_W}{\eta_E g_E}
+\end{equation}
+
+where $\eta_W > 0$ and $\eta_E > 0$.
+
+Interpretation:
+
+\begin{itemize}
+    \item $\lambda_t > 0$ : spectral lift (escape basin)
+    \item $\lambda_t < 0$ : reinforce dominant directions
+\end{itemize}
+
+\section{Spectral Injection Law}
+
+Let low-energy eigenvectors from the spectral layer be:
+
+\begin{equation}
+V_{\text{low}} = \{ v_r, \dots, v_d \}
+\end{equation}
+
+Define perturbation:
+
+\begin{equation}
+\Delta e_t =
+\lambda_t
+\sum_{i=r}^{d}
+\epsilon_i v_i
+\end{equation}
+
+Final embedding:
+
+\begin{equation}
+e'_t = e_t + \Delta e_t
+\end{equation}
+
+This couples persona state to spectral modulation.
+
+\section{Dynamical Stability Constraint}
+
+To prevent oscillatory instability:
+
+\begin{equation}
+|\lambda_t| \leq \lambda_{\max}
+\end{equation}
+
+Optional damping:
+
+\begin{equation}
+\lambda_t \leftarrow
+\rho \lambda_{t-1}
++
+(1 - \rho)\lambda_t
+\end{equation}
+
+where $0 < \rho < 1$.
+
+This yields a controlled damped oscillator over embedding geometry.
+
+\section{Closed Feedback System}
+
+The full system evolves as:
+
+\begin{equation}
+x_{t+1} = f(x_t)
+\end{equation}
+
+where:
+
+\begin{itemize}
+    \item Structural metrics evolve from embeddings
+    \item Embeddings evolve from spectral modulation
+    \item Spectral modulation is governed by persona gains
+\end{itemize}
+
+This forms a bounded supervisory dynamical control system over embedding space.
+
+\section*{Summary}
+
+Layer 3 provides:
+
+\begin{itemize}
+    \item Spectral degeneracy detection
+    \item Angular stagnation detection
+    \item Orthogonal spectral lift
+\end{itemize}
+
+Layer 2 adds:
+
+\begin{itemize}
+    \item Persona-specific nonlinear gains
+    \item Coupled control law
+    \item Basin reinforcement versus escape regulation
+    \item Damped modulation for stability
+\end{itemize}
+
+No transformer modification is required.  
+No gradient injection is required.  
+This operates purely as a supervisory geometric control layer.
+
+\end{document}
+

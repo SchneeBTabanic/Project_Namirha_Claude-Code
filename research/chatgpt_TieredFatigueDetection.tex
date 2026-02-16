@@ -1,0 +1,176 @@
+\documentclass[11pt]{article}
+
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amssymb}
+\usepackage{bm}
+\usepackage{hyperref}
+
+\title{Tiered Fatigue Detection and Orthogonal Recapitulation Model}
+\author{}
+\date{}
+
+\begin{document}
+
+\maketitle
+
+\section{System Overview}
+
+We formalize crystallization detection as a multi-component dynamical system operating over embedding space and probability space.
+
+Let:
+\[
+e_t \in \mathbb{R}^d
+\]
+be the embedding vector of the model output at turn $t$.
+
+Let:
+\[
+p_t \in \mathbb{R}^V
+\]
+be the softmax probability distribution over vocabulary size $V$.
+
+\section{Composite Fatigue Score}
+
+We define a weighted fatigue score:
+
+\begin{equation}
+F_t = \alpha S_t + \beta E_t + \gamma N_t
+\end{equation}
+
+with weights:
+
+\[
+\alpha = 0.4, \quad \beta = 0.3, \quad \gamma = 0.3
+\]
+
+Each component measures a different crystallization pressure.
+
+\section{Similarity Component ($S_t$)}
+
+Rolling repetition across the last $k$ turns:
+
+\begin{equation}
+S_t = \frac{1}{k} \sum_{i=1}^{k}
+\cos(e_t, e_{t-i})
+\end{equation}
+
+High $S_t$ indicates convergence toward a semantic attractor basin.
+
+\section{Entropy Collapse Component ($E_t$)}
+
+Shannon entropy of token probabilities:
+
+\begin{equation}
+H_t = -\sum_{i=1}^{V} p_{t,i} \log p_{t,i}
+\end{equation}
+
+Normalize by maximum entropy:
+
+\begin{equation}
+\tilde{H}_t = \frac{H_t}{\log V}
+\end{equation}
+
+Define entropy collapse:
+
+\begin{equation}
+E_t = 1 - \tilde{H}_t
+\end{equation}
+
+High $E_t$ indicates confidence concentration (reduced diversity).
+
+\section{Novelty Drift Component ($N_t$)}
+
+Define historical centroid:
+
+\begin{equation}
+\bar{e}_t = \frac{1}{k} \sum_{i=1}^{k} e_{t-i}
+\end{equation}
+
+Define drift:
+
+\begin{equation}
+D_t = 1 - \cos(e_t, \bar{e}_t)
+\end{equation}
+
+Define stagnation:
+
+\begin{equation}
+N_t = 1 - D_t
+\end{equation}
+
+High $N_t$ indicates trajectory stagnation.
+
+\section{Tiered Thresholding}
+
+Two operational thresholds:
+
+\begin{align}
+\theta_1 &= 0.68 \quad \text{(soft disclosure)} \\
+\theta_2 &= 0.84 \quad \text{(hard recapitulation trigger)}
+\end{align}
+
+Decision rules:
+
+\[
+F_t > \theta_1 \Rightarrow \text{process disclosure}
+\]
+
+\[
+F_t > \theta_2 \Rightarrow \text{structural recapitulation}
+\]
+
+\section{Orthogonal Recapitulation Perturbation}
+
+When $F_t > \theta_2$, compute structured escape.
+
+Define historical subspace:
+
+\[
+H = \text{span}\{ e_{t-1}, e_{t-2}, \dots, e_{t-k} \}
+\]
+
+Project current embedding:
+
+\begin{equation}
+\text{proj}_H(e_t)
+\end{equation}
+
+Define orthogonal contrast:
+
+\begin{equation}
+v_t = e_t - \text{proj}_H(e_t)
+\end{equation}
+
+Normalize:
+
+\begin{equation}
+\hat{v}_t = \frac{v_t}{\|v_t\|}
+\end{equation}
+
+Perturbed embedding:
+
+\begin{equation}
+e'_t = e_t + \lambda \hat{v}_t
+\end{equation}
+
+where
+\[
+0.05 \le \lambda \le 0.15
+\]
+
+This enforces basin escape while preserving semantic continuity.
+
+\section{Interpretation}
+
+\begin{itemize}
+\item $S_t$ detects repetition.
+\item $E_t$ detects over-confidence collapse.
+\item $N_t$ detects trajectory stagnation.
+\item $F_t$ measures composite crystallization pressure.
+\item Orthogonal perturbation enforces controlled basin transition.
+\end{itemize}
+
+The model is locally computable when embeddings and logits are available and does not require modification of transformer weights.
+
+\end{document}
+

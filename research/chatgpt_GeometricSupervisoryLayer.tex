@@ -1,0 +1,206 @@
+\documentclass[11pt]{article}
+
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{geometry}
+\geometry{margin=1in}
+
+\title{Harmonic Structural Fatigue Model\\
+A Geometric Supervisory Layer for Embedding Dynamics}
+\author{}
+\date{}
+
+\begin{document}
+
+\maketitle
+
+\section{Overview}
+
+This document defines a geometric supervisory layer over embedding space
+for detecting semantic crystallization and enabling structured recapitulation.
+
+The model operates entirely on embeddings and does not require
+transformer modification.
+
+\section{Embedding Space as a Dynamical Manifold}
+
+Let
+\[
+e_t \in \mathbb{R}^d
+\]
+be the embedding at turn $t$.
+
+Define a rolling window of size $k$:
+\[
+E_t = \{ e_{t-1}, \dots, e_{t-k} \}
+\]
+
+These embeddings span a local semantic manifold.
+
+\section{Covariance Structure}
+
+Define the rolling mean:
+\[
+\mu_t = \frac{1}{k} \sum_{i=1}^{k} e_{t-i}
+\]
+
+Define the covariance matrix:
+\[
+C_t =
+\frac{1}{k}
+\sum_{i=1}^{k}
+(e_{t-i} - \mu_t)
+(e_{t-i} - \mu_t)^T
+\]
+
+Perform eigendecomposition:
+\[
+C_t = Q \Lambda Q^T
+\]
+
+where
+\[
+\Lambda = \mathrm{diag}(\lambda_1, \dots, \lambda_d)
+\quad \text{with} \quad
+\lambda_1 \ge \lambda_2 \ge \dots \ge \lambda_d
+\]
+
+Eigenvectors define principal semantic directions.
+
+\section{Spectral Entropy and Rank Collapse}
+
+Define normalized eigenvalues:
+\[
+\tilde{\lambda}_i =
+\frac{\lambda_i}{\sum_{j=1}^{d} \lambda_j}
+\]
+
+Define spectral entropy:
+\[
+H_{\mathrm{spec}} =
+- \sum_{i=1}^{d}
+\tilde{\lambda}_i
+\log \tilde{\lambda}_i
+\]
+
+Define rank collapse metric:
+\[
+\mathrm{RankCollapse}_t
+=
+1 -
+\frac{H_{\mathrm{spec}}}{\log d}
+\]
+
+Properties:
+
+\begin{itemize}
+\item Near $0$: evenly distributed semantic directions.
+\item Near $1$: collapse onto few dominant axes.
+\end{itemize}
+
+\section{Angular Dynamics}
+
+Define angular displacement:
+\[
+\theta_t =
+\arccos
+\left(
+\frac{e_t \cdot e_{t-1}}
+{\|e_t\|\|e_{t-1}\|}
+\right)
+\]
+
+Define rolling angular variance:
+\[
+\sigma^2_{\theta}
+=
+\mathrm{Var}
+(\theta_{t-k}, \dots, \theta_t)
+\]
+
+Low variance indicates directional stagnation.
+
+\section{Composite Geometric Fatigue}
+
+Define fatigue score:
+\[
+F_t =
+\alpha S_t
++
+\beta E_t
++
+\gamma \mathrm{RankCollapse}_t
++
+\delta (1 - \sigma^2_{\theta})
+\]
+
+where:
+
+\begin{itemize}
+\item $S_t$ = cosine similarity repetition
+\item $E_t$ = entropy collapse (optional if logits available)
+\item $\mathrm{RankCollapse}_t$ = spectral degeneracy
+\item $(1 - \sigma^2_{\theta})$ = angular stagnation
+\end{itemize}
+
+\section{Structural Recapitulation}
+
+When
+\[
+F_t > \theta_2
+\]
+inject novelty along low-energy eigenvectors.
+
+Let $r$ define dominant spectrum cutoff.
+
+Define low-spectrum subspace:
+\[
+V_{\mathrm{low}} =
+\{ v_r, \dots, v_d \}
+\]
+
+Define perturbation:
+\[
+e_t' =
+e_t +
+\lambda
+\sum_{i=r}^{d}
+\epsilon_i v_i
+\]
+
+where
+\[
+\epsilon_i \sim \mathcal{N}(0,1)
+\]
+
+and $\lambda$ is a small modulation constant.
+
+This pushes the embedding out of dominant semantic basins
+while preserving coherence.
+
+\section{Implementation Properties}
+
+\begin{itemize}
+\item Requires only embeddings.
+\item Computable in NumPy.
+\item No gradient access required.
+\item Works locally.
+\item No transformer modification needed.
+\end{itemize}
+
+\section{Conclusion}
+
+This model provides:
+
+\begin{itemize}
+\item Spectral degeneracy detection
+\item Directional stagnation detection
+\item Controlled orthogonal escape
+\item Basin modulation via covariance geometry
+\end{itemize}
+
+It is a mathematically grounded structural supervisory layer
+over embedding dynamics.
+
+\end{document}
+
