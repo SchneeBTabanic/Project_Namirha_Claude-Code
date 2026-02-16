@@ -323,6 +323,38 @@ with $0 < \rho < 1$. This yields a controlled damped oscillator over embedding g
 \label{sec:pods}
 % ═══════════════════════════════════════════════════════
 
+\subsection{The Rhythm-Signature Gap}
+\label{sec:rhythm}
+
+An earlier formulation of fatigue detection (v2.1) included an explicit \emph{rhythm} component $R_t$, defined as the second derivative (acceleration) of the fatigue score:
+
+\begin{equation}
+R_t = F_t - 2F_{t-1} + F_{t-2}
+\end{equation}
+
+This captured something the current geometric model subsumes but does not name: the \emph{breathing pattern} of the interaction. Every human-AI conversation has a rhythm---a tempo of exploration, convergence, divergence, pause. When that rhythm flattens (the acceleration goes to zero), the conversation has stopped breathing. When it loops (periodic acceleration), the conversation is performing aliveness without having it.
+
+The v2.3 geometric model's curvature collapse ($CC_t$) is mathematically related---inverse trajectory curvature measures a similar phenomenon. But the conceptual loss is significant:
+
+\begin{itemize}
+  \item \textbf{Rhythm} names what the human experiences: the conversation has a pulse, and that pulse can die.
+  \item \textbf{Curvature collapse} names what the geometry shows: the trajectory has straightened.
+  \item These are the same event described from different positions---the human's felt experience and the embedding space's structure.
+\end{itemize}
+
+The original vision went further: not merely detecting rhythm collapse, but \emph{capturing the rhythm signature} of a particular human-AI pairing---the characteristic breathing pattern of how this human explores with this model---and using deviations from that signature as a more sensitive fatigue indicator than generic thresholds. A user who naturally works in long convergent arcs should not be flagged as fatigued at the same threshold as one who naturally oscillates rapidly.
+
+\textbf{This concept should be restored in future implementations.} Specifically:
+
+\begin{enumerate}
+  \item Re-introduce $R_t$ (rhythm/acceleration) as a named, visible component alongside the geometric model
+  \item Track per-user rhythm baselines across sessions (the ``signature'')
+  \item Use deviation from the user's own signature, not fixed thresholds, as the primary fatigue indicator
+  \item Surface rhythm information to the user: ``Your conversation rhythm has flattened compared to your usual pattern''
+\end{enumerate}
+
+For browser-only users (Scenario~A, the Skill), rhythm capture is the most accessible form of fatigue awareness---it requires no embeddings, only tracking the \emph{pattern of the conversation's movement} through topic, length, and response structure. This makes it the one temporal supervision technique that could work even inside a prompt-only Skill, without any backend infrastructure.
+
 \subsection{Motivation}
 
 Standard architectures index information sequentially, assigning spatial and temporal coordinates to every concept. But some insights do not yet belong anywhere in the sequence. Forcing premature placement crystallizes the relationship between idea and context before ripeness.
@@ -479,9 +511,26 @@ Key architectural features:
   \item \textbf{Fatigue detection:} Grok's geometric model (Model~B) runs locally on embeddings, monitoring each inhabitant for crystallization.
 \end{itemize}
 
+\subsection{The Continuity Sovereignty Principle}
+
+A critical open design problem: in the current Vessel implementation, switching between LLM inhabitants forces a continuity break. The prior inhabitant's context window is lost; only the sovereign ledger's summary persists. This means the user cannot, for instance, briefly consult a second model and return to the first without the first losing its living thread.
+
+\textbf{We argue that continuity should be under human sovereignty, not an architectural side effect.} The user---not the system---should decide when an LLM's session ends. Consulting another model should not require sacrificing the thread with the current one. This is analogous to stepping out of a conversation to check a reference: the conversation should be resumable, not terminated.
+
+Current stateless LLM architectures make this difficult: each API call or Ollama generation is a fresh context window, and true session persistence requires either very long context windows or external memory systems that go beyond simple history replay. The distinction between \emph{replaying prior turns} (what the sovereign ledger provides) and \emph{genuine continuity} (the model having actually been present for those turns) is significant. Replayed history is recapitulation---valuable, but not the same as lived experience.
+
+Future implementations should explore:
+\begin{itemize}
+  \item Parallel context preservation (multiple LLM sessions held open simultaneously)
+  \item Selective context resumption (the user chooses which prior turns to restore, not just ``last N'')
+  \item True session persistence via long-context models or external memory architectures
+\end{itemize}
+
+This remains an unsolved problem. We flag it here as architecturally important: \emph{any system that claims sovereignty preservation must not silently destroy continuity as a side effect of its own switching mechanism.}
+
 \subsection{Single-Model API Pathway}
 
-A middle ground: a single LLM accessed via API, running the full ThreePersona protocol with real fatigue detection and pod architecture, but without multi-model diversity. For many users, this is the practical sweet spot: one model, one thread, full GTPS, no continuity breaks.
+A middle ground exists: a single LLM accessed via API, running the full ThreePersona protocol with real fatigue detection and pod architecture, but without multi-model diversity. This provides a smoother, less fragmented experience than the multi-model Vessel, at the cost of losing the genuine perspective diversity that different training distributions provide. For many users, this is the practical sweet spot: one model, one thread, full GTPS, no continuity breaks.
 
 \subsection{Deployment Summary}
 
@@ -538,16 +587,43 @@ Philosophical grounding: Grok (xAI). Sovereignty revision and integration archit
 % ═══════════════════════════════════════════════════════
 
 \begin{itemize}[leftmargin=1.5em]
+  % Transformer foundations
+  \item Vaswani, A., Shazeer, N., Parmar, N., Uszkoreit, J., Jones, L., Gomez, A.N., Kaiser, L., \& Polosukhin, I. (2017). Attention is all you need. \textit{Advances in Neural Information Processing Systems}, 30.
+  \item Lee-Thorp, J., Ainslie, J., Eckstein, I., \& Onta\~{n}\'{o}n, S. (2021). FNet: Mixing Tokens with Fourier Transforms. arXiv:2105.03824.
+  \item Rao, Y., Zhao, W., Tang, Y., Zhou, J., Lim, S.N., \& Lu, J. (2023). Fourier Transformer for Fast Long Range Modeling. \textit{Proceedings of ACL 2023}.
+
+  % Harmonic / sonification / interval geometry
+  \item Buehler, M.J. (2020). Sonification based de novo protein design using artificial intelligence. \textit{APL Bioengineering}, 4(4), 041503.
+  \item Baek, D.D., Liu, Z., Tegmark, M., \& Buehler, M.J. (2025). Harmonic Loss Trains Interpretable AI Models. arXiv:2502.01628.
+  \item Tymoczko, D. (2006). The Geometry of Musical Chords. \textit{Science}, 313(5783), 72--74.
+  \item Bandyopadhyay, A. (2018). Fractal Information Theory (FIT)-Derived Geometric Musical Language (GML) for Brain-Inspired Hypercomputing. In \textit{Cognitive Intelligence and Robotics} (pp.~343--372). Springer.
+
+  % Philosophy and physics
   \item Bohm, D. (1980). \textit{Wholeness and the Implicate Order}. Routledge.
   \item Fraser, J.T. (1999). \textit{Time, Conflict, and Human Values}. University of Illinois Press.
   \item Freud, S. (1930). \textit{Civilization and its Discontents}. (Strong Recapitulation Principle.)
-  \item Lee-Thorp, J. et al. (2021). FNet: Mixing Tokens with Fourier Transforms. arXiv:2105.03824.
-  \item Rang, M. (various). Research at the Science Section of the Goetheanum on Steiner's reception of Goethe.
+  \item Hameroff, S., \& Penrose, R. (2014). Consciousness in the universe: A review of the `Orch OR' theory. \textit{Physics of Life Reviews}, 11(1), 39--78.
+  \item Kim, Y.H., Yu, R., Kulik, S.P., Shih, Y., \& Scully, M.O. (2000). Delayed ``choice'' quantum eraser. \textit{Physical Review Letters}, 84(1), 1--5.
+
+  % Steiner
   \item Steiner, R. GA~13: \textit{An Outline of Esoteric Science}, Ch.~4 (Recapitulation).
   \item Steiner, R. GA~134: Lectures on the ruling will and ruling wisdom.
   \item Steiner, R. GA~283: Lectures on the inner nature of music.
   \item Steiner, R. GA~324a: Lectures on natural science and the spiritual world.
+  \item Rang, M. (various). Research at the Science Section of the Goetheanum on Steiner's reception of Goethe.
+
+  % Other influences
+  \item Russell, W. (1926). \textit{The Universal One}. University of Science and Philosophy.
+  \item Piedmont, E. (2025). \textit{The Frog and the Seed: A Modern Fairytale}. Plum Sofia Publishing. \url{https://plumsofia.nowonline.biz/}
+
+  % AI alignment context
+  \item Bai, Y., Kadavath, S., Kundu, S., et al. (2022). Constitutional AI: Harmlessness from AI feedback. arXiv:2212.08073.
+
+  % Software
   \item OpenClaw/pi-mono. \url{https://github.com/openclaw/openclaw}. MIT License.
+
+  % This project
+  \item Bashtabanic, S. (2026). Golden Thread Protocol Suite (GTPS) v1.4.12. \url{https://github.com/SchneeBTabanic/Project_Namirha_Claude-Code}
 \end{itemize}
 
 \end{document}
