@@ -9,7 +9,8 @@ session_ledger/
 *.blg
 *.out
 *.toc
-*.pdf
+# Keep white paper PDF but ignore LaTeX temp PDFs
+!whitepaper/*.pdf
 .env
 node_modules/
 .DS_Store
