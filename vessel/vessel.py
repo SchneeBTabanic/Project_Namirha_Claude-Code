@@ -248,6 +248,107 @@ class PulseEstimator:
         s.last_user_emb = None; s.prev_user_emb = None
 
 # ═══════════════════════════════════════════════════════
+# DIRECTION TRACKER — Sustained Human Intention (τ vector)
+# Grok's truth-modulation formula: e'_t = e_t + λ(e_t · τ)τ
+# τ is the human's sustained direction — not any single message
+# but the accumulated vector of what they keep returning to.
+# The "internal attention that holds while external attention moves."
+#
+# Alignment measures whether the model's output still resonates
+# with the human's sustained thread, even when content looks
+# locally coherent. Low alignment + low fatigue = the model is
+# coherent but off-thread. A sovereignty violation invisible
+# to fatigue detection alone.
+#
+# Math: Grok (xAI). Integration: Claude (Anthropic).
+# Principle: Schnee Bashtabanic.
+# ═══════════════════════════════════════════════════════
+
+class DirectionTracker:
+    """Tracks the human's sustained intentional direction across a session.
+    
+    τ (tau_dir) is a slow-moving embedding vector that represents what
+    the human keeps returning to — their deep thread. Updated at the
+    human's pace (weighted by τ_h), not the model's.
+    
+    Alignment = dot(model_output, τ) / |model_output|
+    High alignment: model is on the human's thread.
+    Low alignment: model is coherent but drifting.
+    """
+    
+    def __init__(s):
+        s.tau_dir = None        # sustained direction vector
+        s.base_alpha = 0.85     # EMA base weight (slow-moving)
+    
+    def update(s, user_emb, tau_h):
+        """Update sustained direction from new user message.
+        
+        Args:
+            user_emb: embedding of the user's message
+            tau_h: current human pulse estimate (0, 1]
+        
+        The direction moves slowly when τ_h is low (human is reflective,
+        their deep thread is stable) and can shift faster when τ_h is
+        high (human is exploring, direction may be changing).
+        """
+        if s.tau_dir is None:
+            s.tau_dir = user_emb.copy()
+            norm = np.linalg.norm(s.tau_dir)
+            if norm > 0:
+                s.tau_dir = s.tau_dir / norm
+            return
+        
+        # When tau_h is low (reflective): effective_alpha is high → direction stable
+        # When tau_h is high (exploring): effective_alpha is lower → direction can shift
+        effective_alpha = s.base_alpha + (1 - s.base_alpha) * (1 - tau_h)
+        s.tau_dir = effective_alpha * s.tau_dir + (1 - effective_alpha) * user_emb
+        
+        # Normalize to unit vector
+        norm = np.linalg.norm(s.tau_dir)
+        if norm > 0:
+            s.tau_dir = s.tau_dir / norm
+    
+    def alignment(s, emb):
+        """How aligned is an embedding with the human's sustained direction?
+        
+        Args:
+            emb: embedding to check (typically the model's response embedding)
+        
+        Returns:
+            alignment score in [-1, 1]. High positive = on thread.
+            Near zero = orthogonal (drifting). Negative = opposing.
+        """
+        if s.tau_dir is None:
+            return 0.5  # neutral until direction established
+        norm_e = np.linalg.norm(emb)
+        if norm_e == 0:
+            return 0.5
+        return round(float(np.dot(emb, s.tau_dir) / norm_e), 4)
+    
+    def modulate_embedding(s, emb, lam=0.3):
+        """Apply Grok's truth-modulation formula: e' = e + λ(e · τ)τ
+        
+        This amplifies the component of an embedding that aligns with
+        the human's sustained direction. Used for pod detection: pods
+        that resonate with the human's deep thread are more likely to
+        be unveiled.
+        
+        Args:
+            emb: embedding to modulate
+            lam: modulation strength (0 = no effect, 1 = strong pull toward τ)
+        
+        Returns:
+            modulated embedding
+        """
+        if s.tau_dir is None:
+            return emb
+        dot = np.dot(emb, s.tau_dir)
+        return emb + lam * dot * s.tau_dir
+    
+    def reset(s):
+        s.tau_dir = None
+
+# ═══════════════════════════════════════════════════════
 # PODS
 # ═══════════════════════════════════════════════════════
 
@@ -354,6 +455,194 @@ class Scratchpad:
         with open(s.path,'w') as f: json.dump(s.items,f,indent=2)
 
 # ═══════════════════════════════════════════════════════
+# RHYTHM STORE — Temporal Signatures for Living Recapitulation
+# See docs/RHYTHM-STORE.md for the full theory.
+#
+# Stores not WHAT was said, but HOW the conversation was
+# breathing: τ_h trajectories, fatigue curves, curvature,
+# event spacing. This is the interval, not the note.
+# ═══════════════════════════════════════════════════════
+
+class RhythmStore:
+    """Stores temporal signatures per session for rhythm-aware recapitulation."""
+    
+    def __init__(s, base_dir):
+        s.base = base_dir
+        s.samples = []
+        s.session_id = None
+        s.model = None
+        s.started = None
+    
+    def start_session(s, model, session_id):
+        s.samples = []
+        s.session_id = session_id
+        s.model = model
+        s.started = datetime.now().isoformat()
+    
+    def record(s, turn, tau_h, fatigue, status, components, thresholds, events=None):
+        """Record a single rhythm sample for this turn."""
+        s.samples.append({
+            "turn": turn,
+            "ts": time.time(),
+            "tau_h": round(tau_h, 4),
+            "fatigue": round(fatigue, 4),
+            "fatigue_status": status,
+            "components": {k: round(v, 4) for k, v in components.items()},
+            "thresholds": {k: round(v, 4) for k, v in thresholds.items()},
+            "events": events or []
+        })
+    
+    def compute_signature(s):
+        """Compute the session's temporal signature from accumulated samples."""
+        if not s.samples:
+            return {"dominant_rhythm": "empty", "mean_tau_h": 0, "curvature_integral": 0}
+        
+        taus = [sm["tau_h"] for sm in s.samples]
+        fatigues = [sm["fatigue"] for sm in s.samples]
+        
+        mean_tau = sum(taus) / len(taus)
+        tau_var = sum((t - mean_tau)**2 for t in taus) / len(taus) if len(taus) > 1 else 0
+        mean_f = sum(fatigues) / len(fatigues)
+        peak_f = max(fatigues)
+        
+        # Fatigue trend: compare first half to second half
+        mid = len(fatigues) // 2
+        if mid > 0 and len(fatigues) > mid:
+            first_half = sum(fatigues[:mid]) / mid
+            second_half = sum(fatigues[mid:]) / (len(fatigues) - mid)
+            if second_half > first_half + 0.05:
+                f_trend = "rising"
+            elif first_half > second_half + 0.05:
+                f_trend = "falling"
+            else:
+                f_trend = "stable"
+        else:
+            f_trend = "stable"
+        
+        # Breathing events: significant τ_h changes and fatigue transitions
+        breathing_events = []
+        for i in range(1, len(s.samples)):
+            delta_tau = s.samples[i]["tau_h"] - s.samples[i-1]["tau_h"]
+            if delta_tau < -0.15:
+                breathing_events.append({
+                    "turn": s.samples[i]["turn"], "type": "pause",
+                    "tau_h_delta": round(delta_tau, 3)})
+            elif delta_tau > 0.15:
+                breathing_events.append({
+                    "turn": s.samples[i]["turn"], "type": "acceleration",
+                    "tau_h_delta": round(delta_tau, 3)})
+            
+            if (s.samples[i]["fatigue_status"] == "soft" and 
+                s.samples[i-1]["fatigue_status"] == "fresh"):
+                breathing_events.append({
+                    "turn": s.samples[i]["turn"], "type": "soft_fatigue_onset",
+                    "F_t": s.samples[i]["fatigue"]})
+            elif (s.samples[i]["fatigue_status"] == "hard" and
+                  s.samples[i-1]["fatigue_status"] != "hard"):
+                breathing_events.append({
+                    "turn": s.samples[i]["turn"], "type": "hard_fatigue_onset",
+                    "F_t": s.samples[i]["fatigue"]})
+            
+            for ev in s.samples[i].get("events", []):
+                breathing_events.append({
+                    "turn": s.samples[i]["turn"], "type": ev})
+        
+        # Curvature integral: sum of absolute τ_h changes (total direction change)
+        curvature = sum(abs(taus[i] - taus[i-1]) for i in range(1, len(taus)))
+        
+        # Dominant rhythm classification
+        if mean_tau < 0.4 and tau_var < 0.02:
+            dominant = "reflective"
+        elif mean_tau > 0.65:
+            dominant = "exploratory"
+        elif tau_var > 0.03:
+            dominant = "reflective_with_burst"
+        elif f_trend == "rising" and peak_f > THETA_SOFT:
+            dominant = "fatiguing"
+        elif f_trend == "falling":
+            dominant = "recovered"
+        else:
+            dominant = "steady"
+        
+        return {
+            "mean_tau_h": round(mean_tau, 4),
+            "tau_h_variance": round(tau_var, 4),
+            "mean_fatigue": round(mean_f, 4),
+            "peak_fatigue": round(peak_f, 4),
+            "fatigue_trend": f_trend,
+            "breathing_events": breathing_events,
+            "dominant_rhythm": dominant,
+            "curvature_integral": round(curvature, 4)
+        }
+    
+    def save(s, model_dir):
+        """Save rhythm file alongside the session ledger."""
+        if not s.session_id or not s.samples:
+            return
+        rhythm = {
+            "session_id": s.session_id,
+            "model": s.model,
+            "started": s.started,
+            "total_turns": len(s.samples),
+            "samples": s.samples,
+            "signature": s.compute_signature()
+        }
+        path = os.path.join(model_dir, f"{s.session_id}.rhythm.json")
+        with open(path, 'w') as f:
+            json.dump(rhythm, f, indent=2)
+    
+    def load_signature(s, model_dir, session_id):
+        """Load a prior session's rhythm signature for recapitulation."""
+        path = os.path.join(model_dir, f"{session_id}.rhythm.json")
+        if not os.path.exists(path):
+            return None
+        with open(path) as f:
+            rhythm = json.load(f)
+        return rhythm.get("signature")
+    
+    def format_for_recapitulation(s, signature):
+        """Format a rhythm signature as natural language for the system prompt."""
+        if not signature:
+            return ""
+        
+        lines = ["[YOUR PRIOR SESSION — RHYTHM]"]
+        lines.append(f"Session was {signature['dominant_rhythm']} "
+                     f"(mean pulse {signature['mean_tau_h']}, variance {signature['tau_h_variance']:.3f}).")
+        lines.append(f"Fatigue was {signature['fatigue_trend']} "
+                     f"(peaked at {signature['peak_fatigue']:.2f}).")
+        
+        if signature.get("breathing_events"):
+            lines.append("Key breathing events:")
+            for ev in signature["breathing_events"][:6]:  # cap at 6 most important
+                if ev["type"] == "pause":
+                    lines.append(f"  - Turn {ev['turn']}: Long pause (τ_h dropped {ev['tau_h_delta']})")
+                elif ev["type"] == "acceleration":
+                    lines.append(f"  - Turn {ev['turn']}: Acceleration (τ_h rose {ev['tau_h_delta']})")
+                elif ev["type"] == "soft_fatigue_onset":
+                    lines.append(f"  - Turn {ev['turn']}: Soft fatigue onset (F_t={ev.get('F_t', '?'):.2f})")
+                elif ev["type"] == "hard_fatigue_onset":
+                    lines.append(f"  - Turn {ev['turn']}: Hard fatigue onset (F_t={ev.get('F_t', '?'):.2f})")
+                elif ev["type"] == "pod_unveiled":
+                    lines.append(f"  - Turn {ev['turn']}: Pod unveiled")
+                else:
+                    lines.append(f"  - Turn {ev['turn']}: {ev['type']}")
+        
+        ci = signature.get("curvature_integral", 0)
+        if ci > 3.0:
+            lines.append(f"Curvature was high ({ci:.2f}) — conversation was alive, many direction changes.")
+        elif ci > 1.5:
+            lines.append(f"Curvature was moderate ({ci:.2f}) — some direction changes.")
+        else:
+            lines.append(f"Curvature was low ({ci:.2f}) — conversation was relatively linear.")
+        
+        # Indicate unresolved state
+        if signature.get("fatigue_trend") == "rising" and signature.get("peak_fatigue", 0) > THETA_SOFT:
+            lines.append("The session ended with rising fatigue and likely unresolved threads.")
+        
+        lines.append("[END RHYTHM]")
+        return "\n".join(lines)
+
+# ═══════════════════════════════════════════════════════
 # THE VESSEL v2
 # ═══════════════════════════════════════════════════════
 
@@ -395,20 +684,27 @@ class Vessel:
         os.makedirs(DATA_DIR, exist_ok=True)
         s.model = None; s.sid = None; s.fatigue = Fatigue()
         s.pulse = PulseEstimator()
+        s.direction = DirectionTracker()
         s.pods = Pods(); s.ledger = SovereignLedger(os.path.join(DATA_DIR, "ledgers"))
         s.scratchpad = Scratchpad(os.path.join(DATA_DIR, "scratchpad.json"))
+        s.rhythm = RhythmStore(os.path.join(DATA_DIR, "ledgers"))
         s.history = []; s.turn = 0; s.own_memory = ""
         s.pods.load(os.path.join(DATA_DIR, "pods.json"))
     
     def possess(s, model):
         if model not in AVAILABLE_MODELS: return {"error": f"Unknown: {model}"}
+        # Save current rhythm before switching
+        if s.model and s.sid:
+            model_dir = s.ledger._model_dir(s.model)
+            s.rhythm.save(model_dir)
         s._save_pods()
-        s.model = model; s.fatigue.reset(); s.pulse.reset(); s.history = []; s.turn = 0
+        s.model = model; s.fatigue.reset(); s.pulse.reset(); s.direction.reset(); s.history = []; s.turn = 0
         
         # Check for prior sessions — let the LLM recognize itself
         prior_sessions = s.ledger.get_sessions(model)
         s.own_memory = ""
         returning = False
+        rhythm_context = ""
         if prior_sessions:
             returning = True
             # Load most recent session's last turns as memory
@@ -431,12 +727,23 @@ class Vessel:
                     "[END PRIOR SESSION]\n"
                     "You may reference this naturally. The user knows you have continuity."
                 )
+            
+            # Load rhythm signature from most recent session
+            model_dir = s.ledger._model_dir(model)
+            prior_sig = s.rhythm.load_signature(model_dir, latest["id"])
+            if prior_sig:
+                rhythm_context = "\n" + s.rhythm.format_for_recapitulation(prior_sig)
+                s.own_memory += rhythm_context
         
+        # Start new rhythm recording
         s.sid = s.ledger.start(model)
+        s.rhythm.start_session(model, s.sid)
+        
         info = AVAILABLE_MODELS[model]
         return {"status":"possessed","model":model,"name":info["name"],"provider":info["provider"],
                 "session_id":s.sid,"returning":returning,
-                "prior_sessions":len(prior_sessions)}
+                "prior_sessions":len(prior_sessions),
+                "has_rhythm": bool(rhythm_context)}
     
     def speak(s, msg):
         if not s.model: return {"error":"No inhabitant. Choose a model."}
@@ -450,11 +757,16 @@ class Vessel:
         tau_h = s.pulse.update(msg, emb, t0)
         theta_soft, theta_hard, pod_high, pod_soft = s.pulse.modulate_thresholds()
         
+        # Update sustained direction tracker (human's deep thread)
+        s.direction.update(emb, tau_h)
+        
         # Apply adaptive thresholds (Stage 1) instead of fixed (Stage 0)
         f_status = "hard" if f_score > theta_hard else "soft" if f_score > theta_soft else "fresh"
         
-        # Pod detection with pulse-modulated thresholds
-        pod_result = s._detect_pod_adaptive(emb, f_score, pod_high, pod_soft)
+        # Pod detection with pulse-modulated thresholds and truth-modulation
+        # Pods that resonate with the human's sustained direction are boosted
+        emb_modulated = s.direction.modulate_embedding(emb, lam=0.3)
+        pod_result = s._detect_pod_adaptive(emb_modulated, f_score, pod_high, pod_soft)
         pod_event = None; extra = ""
         if pod_result:
             pid, sim, content = pod_result; s.pods.unveil(pid)
@@ -487,10 +799,32 @@ class Vessel:
         
         if not proxy: proxy = raw  # Fallback: model didn't follow format
         
+        # Compute alignment: is the model's response on the human's thread?
+        response_emb = get_emb(raw[:500])  # embed the response (cap length)
+        alignment = s.direction.alignment(response_emb)
+        
         s.history.append({"role":"user","content":msg})
         s.history.append({"role":"assistant","content":raw})
         s.ledger.add_turn(s.model, s.sid, msg, raw, f_score, f_status, pod_event)
-        if s.turn % 5 == 0: s._save_pods()
+        
+        # Record rhythm sample (now includes alignment)
+        turn_events = []
+        if pod_event: turn_events.append("pod_unveiled")
+        if f_status == "hard": turn_events.append("hard_fatigue")
+        elif f_status == "soft": turn_events.append("soft_fatigue")
+        if alignment < 0.3: turn_events.append("low_alignment")
+        s.rhythm.record(
+            turn=s.turn, tau_h=tau_h, fatigue=f_score, status=f_status,
+            components=f_comp,
+            thresholds={"soft":theta_soft,"hard":theta_hard,"pod_high":pod_high,"pod_soft":pod_soft},
+            events=turn_events
+        )
+        
+        # Save rhythm and pods periodically
+        if s.turn % 5 == 0:
+            s._save_pods()
+            model_dir = s.ledger._model_dir(s.model)
+            s.rhythm.save(model_dir)
         
         return {
             "proxy": proxy,
@@ -502,6 +836,7 @@ class Vessel:
                      "pulse":{"tau_h":tau_h,
                               "thresholds":{"soft":theta_soft,"hard":theta_hard,
                                             "pod_high":pod_high,"pod_soft":pod_soft}},
+                     "alignment":alignment,
                      "pod":pod_event,"elapsed":round(time.time()-t0,2),"session_id":s.sid}
         }
     
@@ -701,7 +1036,7 @@ body{font-family:'Segoe UI',-apple-system,system-ui,sans-serif;background:#f4f4f
       <h3 id="proxy-title">Proxy</h3>
       <div class="proxy-status">
         <span class="d dd" id="fd" style="display:inline-block;width:8px;height:8px;border-radius:50%"></span>
-        <span id="fl">Fatigue: —</span> · <span id="pl">Pulse: —</span> · <span id="tl">Turn 0</span>
+        <span id="fl">Fatigue: —</span> · <span id="pl">Pulse: —</span> · <span id="al">Align: —</span> · <span id="tl">Turn 0</span>
       </div>
     </div>
     
@@ -788,6 +1123,11 @@ async function go() {
     document.getElementById('fl').textContent='Fatigue: '+f.score+' ('+f.status+')';
     var p=d.meta.pulse;
     if(p) document.getElementById('pl').textContent='Pulse: '+p.tau_h+' (θ:'+p.thresholds.soft+'/'+p.thresholds.hard+')';
+    var al=d.meta.alignment;
+    if(al!==undefined){
+      var alColor=al>0.6?'#22c55e':al>0.3?'#eab308':'#ef4444';
+      document.getElementById('al').innerHTML='Align: <span style="color:'+alColor+'">'+al+'</span>';
+    }
     document.getElementById('tl').textContent='Turn '+d.meta.turn;
     loadLedger();
   }catch(e){ld.remove();pm('s','Error: '+e.message)}
