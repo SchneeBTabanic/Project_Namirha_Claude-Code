@@ -1,0 +1,77 @@
+\documentclass[12pt]{article}
+\usepackage{amsmath, amssymb, geometry, hyperref}
+\geometry{margin=1in}
+
+\title{Sovereign Execution Protocol (SEP-B\textsubscript{h}) for the Vessel}
+\author{}
+\date{}
+
+\begin{document}
+\maketitle
+
+\section*{Introduction}
+
+This document formalizes a minimal \textbf{Sovereign Execution Protocol (SEP)} for a personal Vessel system. The design prioritizes human sovereignty, temporal persistence, and controlled AI mode execution.
+
+\section*{Persistent Direction}
+
+We define a persistent trajectory vector, $\tau_{persistent}$, that anchors all activity and decisions of the Vessel:
+
+\[
+\tau_{dir} \equiv \tau_{persistent}
+\]
+
+\begin{itemize}
+    \item \textbf{Persistent Direction Vector}: Carries continuity across sessions.
+    \item Anchors all mode activity $(M_t, \Theta_t)$ to a single human-defined trajectory.
+    \item Drift and deviation checks always reference $\tau_{persistent}$.
+\end{itemize}
+
+\section*{SEP-B\textsubscript{h} Definition}
+
+\subsection*{1. State Representation}
+\[
+S_t = (M_t, \Theta_t, \tau_{persistent})
+\]
+
+\begin{itemize}
+    \item $M_t$: Current AI mode.
+    \item $\Theta_t$: Operational parameters at time $t$.
+    \item $\tau_{persistent}$: Human-anchored trajectory vector.
+\end{itemize}
+
+\subsection*{2. Parameter Constraints}
+\[
+D_t = \| O_t - \tau_{persistent} \| \leq \kappa
+\]
+
+\begin{itemize}
+    \item $O_t$: Observed operational vector at time $t$.
+    \item $\kappa$: Maximum allowable deviation from persistent trajectory.
+\end{itemize}
+
+\subsection*{3. Mode Transition Rule}
+\[
+M_t \rightarrow M_{t+1} \implies \text{HumanInitiated only}
+\]
+
+\subsection*{4. Execution Check for Irreversible Operations}
+\[
+\text{Irreversible(Op)} \Rightarrow \text{Confirm(H)}
+\]
+
+\subsection*{5. Session Persistence}
+\[
+\tau_{persistent} \text{ stored and recalled automatically each session}
+\]
+
+\section*{Notes}
+
+\begin{itemize}
+    \item Ensures that the Vessel cannot self-derive long-term objectives beyond $\tau_{persistent}$.
+    \item All optimization, entropic modulation, and pulse mechanisms must reference $\tau_{persistent}$ as the grounding vector.
+    \item Human sovereignty is preserved explicitly across sessions.
+\end{itemize}
+
+\end{document}
+

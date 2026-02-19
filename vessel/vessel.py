@@ -98,6 +98,68 @@ def get_emb(text, host="http://localhost:11434"):
         n=np.linalg.norm(v); return v/n if n>0 else v
 
 # ═══════════════════════════════════════════════════════
+# HAND-OFF LOG — Clause 38: Sovereign Hand-off Disclosure
+#
+# Tracks every semantic-to-syntactic hand-off within a turn.
+# When the system delegates to a backend tool (embedding model,
+# fatigue computation, pod detection), it logs: what was called,
+# whether the result was verified or relayed on trust, and
+# whether anything looked anomalous.
+#
+# The Whistleblower panel displays these disclosures so the
+# human always knows where synthesis ended and tool-trust began.
+#
+# Principle: Gemini conversation (Schnee Bashtabanic).
+# Integration: Claude (Anthropic).
+# ═══════════════════════════════════════════════════════
+
+class HandoffLog:
+    """Logs backend tool calls within a single turn for sovereignty disclosure."""
+    
+    def __init__(s):
+        s.entries = []
+    
+    def clear(s):
+        s.entries = []
+    
+    def log(s, tool, action, verified=False, trust="high", note=""):
+        """Record a hand-off event.
+        
+        Args:
+            tool: name of backend tool ("ollama_embed", "fatigue_compute", etc.)
+            action: what was delegated ("embed user message", "compute fatigue score")
+            verified: did we check the result, or relay on trust?
+            trust: "high"/"med"/"low" — confidence in tool reliability
+            note: any anomaly or concern ("fallback to hash embedding", "empty response")
+        """
+        s.entries.append({
+            "tool": tool,
+            "action": action,
+            "verified": verified,
+            "trust": trust,
+            "note": note
+        })
+    
+    def has_concerns(s):
+        """Any unverified hand-offs or anomalies?"""
+        return any(not e["verified"] or e["note"] for e in s.entries)
+    
+    def format_for_whistleblower(s):
+        """Format disclosures for the Whistleblower panel."""
+        if not s.entries:
+            return ""
+        lines = ["[Clause 38 — Hand-off Disclosure]"]
+        for e in s.entries:
+            status = "Verified" if e["verified"] else f"Relayed on trust ({e['trust']})"
+            line = f"  {e['tool']}: {e['action']} → {status}"
+            if e["note"]:
+                line += f" ⚠ {e['note']}"
+            lines.append(line)
+        if s.has_concerns():
+            lines.append("  [Sovereignty Note] Some backend results were not independently verified.")
+        return "\n".join(lines)
+
+# ═══════════════════════════════════════════════════════
 # FATIGUE
 # ═══════════════════════════════════════════════════════
 
@@ -162,14 +224,17 @@ class PulseEstimator:
         s.last_time = None
         s.last_user_emb = None
         s.prev_user_emb = None
+        s.last_dwell = None  # dwell time: how long user read before responding
     
-    def update(s, msg, emb, timestamp=None):
+    def update(s, msg, emb, timestamp=None, dwell_sec=None):
         """Update pulse estimate from a new user message.
         
         Args:
             msg: raw user message text
             emb: embedding vector of the user message
             timestamp: time.time() when message arrived
+            dwell_sec: seconds user spent reading last response before typing
+                       (measured client-side via JS timer)
         
         Returns:
             tau_h: current pulse estimate in (0, 1]
@@ -211,8 +276,22 @@ class PulseEstimator:
         else:
             D_t = 0.5  # neutral until enough history
         
+        # W_t: dwell-time signal (how long user sat with the response)
+        # Long dwell → reflective (low pulse contribution)
+        # Short dwell → quick reaction (high pulse contribution)
+        # Mapped via φ(W) = e^(-W/60): 0s→1.0, 30s→0.61, 60s→0.37, 120s→0.14
+        if dwell_sec is not None and dwell_sec > 0:
+            W_t = np.exp(-dwell_sec / 60.0)
+            s.last_dwell = dwell_sec
+            # When dwell is available, reduce latency weight and add dwell
+            # Dwell is a better signal than latency because latency includes
+            # typing time + distraction, while dwell measures pure reading
+            z = 0.20 * phi_L + 0.20 * M_t + 0.25 * N_t + 0.15 * D_t + 0.20 * W_t
+        else:
+            # Without dwell data, use original weights
+            z = s.w_L * phi_L + s.w_M * M_t + s.w_N * N_t + s.w_D * D_t
+        
         # Combine with sigmoid
-        z = s.w_L * phi_L + s.w_M * M_t + s.w_N * N_t + s.w_D * D_t
         raw_tau = 1.0 / (1.0 + np.exp(-z))
         
         # Exponential moving average
@@ -347,6 +426,193 @@ class DirectionTracker:
     
     def reset(s):
         s.tau_dir = None
+    
+    def save(s, path):
+        """Save τ_dir to disk for cross-session persistence.
+        The human's deep thread doesn't change just because they switched models.
+        τ_persistent ≡ τ_dir (ChatGPT SEP formalization)."""
+        if s.tau_dir is not None:
+            data = {"tau_dir": s.tau_dir.tolist(), "base_alpha": s.base_alpha}
+            with open(path, 'w') as f:
+                json.dump(data, f)
+    
+    def load(s, path):
+        """Load persistent τ_dir from disk."""
+        if os.path.exists(path):
+            with open(path) as f:
+                data = json.load(f)
+            s.tau_dir = np.array(data["tau_dir"])
+            s.base_alpha = data.get("base_alpha", 0.85)
+            return True
+        return False
+
+# ═══════════════════════════════════════════════════════
+# SOVEREIGN EXECUTION PROTOCOL (SEP-Bh)
+# ChatGPT formalization. Integration: Claude (Anthropic).
+# Principle: Schnee Bashtabanic.
+#
+# Four discrete modes define the topology of what the Vessel
+# is allowed to do. Continuous parameters tune behaviour within
+# each mode's bounds. The human modulates in real time.
+#
+# Master sovereignty inequality:
+#   ∂Authority/∂t ≤ ∂Consent/∂t
+#   Authority must never grow faster than explicit consent.
+#
+# State: S_t = (M_t, Θ_t, τ_persistent)
+#
+# REVERSIBILITY CONSTRAINT (placeholder — NOT YET IMPLEMENTED):
+#   Irreversible(Op) ⇒ ExplicitConsent(H)
+#   Currently the Vessel does no irreversible operations (it generates
+#   text, computes scores, unveils pods — all ignorable). If the Vessel
+#   ever connects to external APIs, financial accounts, communication
+#   channels, file deletion, or deployment pipelines, this constraint
+#   must be activated. The math:
+#     For any operation Op:
+#       Irreversible(Op) ⇒ Explicit_Consent(H)
+#       If reversibility cannot be guaranteed → downgrade authority.
+#   Implementation: add a reversibility check before any Execute(E)
+#   in speak(). If the operation is flagged irreversible and mode
+#   is not Executive with explicit confirmation, block and disclose.
+# ═══════════════════════════════════════════════════════
+
+# Mode definitions with parameter bounds: Ω(M)
+SEP_MODES = {
+    "reflective": {
+        "label": "Reflective",
+        "description": "Pure structuring, reframing, modelling. No execution, no tool calls, no autonomous pod unveiling.",
+        "alpha_max": 0.0,       # no execution
+        "sigma_min": 0.0,       # no forced exploration
+        "sigma_max": 0.0,
+        "allow_fatigue": False,  # don't compute fatigue — just hold space
+        "allow_pods": False,     # no autonomous pod unveiling
+        "allow_tools": False,    # no backend tool calls beyond LLM generation
+    },
+    "analytical": {
+        "label": "Analytical",
+        "description": "Deep reasoning, hypothesis generation, internal modelling. Fatigue detection active. No external execution.",
+        "alpha_max": 0.5,
+        "sigma_min": 0.0,
+        "sigma_max": 0.05,
+        "allow_fatigue": True,
+        "allow_pods": False,     # pods stay latent — human decides
+        "allow_tools": False,
+    },
+    "exploratory": {
+        "label": "Exploratory",
+        "description": "Higher variance reasoning, cross-domain linking, pod detection active. Entropic warmth engaged.",
+        "alpha_max": 0.7,
+        "sigma_min": 0.04,      # minimum exploration noise
+        "sigma_max": 0.12,
+        "allow_fatigue": True,
+        "allow_pods": True,      # pods can unveil
+        "allow_tools": False,
+    },
+    "executive": {
+        "label": "Executive",
+        "description": "Full pipeline: fatigue detection, pod unveiling, tool calls, file generation. All sovereignty mechanisms active.",
+        "alpha_max": 1.0,
+        "sigma_min": 0.0,
+        "sigma_max": 0.15,
+        "allow_fatigue": True,
+        "allow_pods": True,
+        "allow_tools": True,
+    }
+}
+
+class SovereignMode:
+    """Manages the Vessel's execution mode (SEP-Bh).
+    
+    The human sets the mode. The system cannot self-switch.
+    Each mode constrains what speak() is allowed to do.
+    
+    Parameters within the mode are adjustable by the human:
+    - κ (kappa): drift tolerance (deviation from τ_persistent)
+    - σ (sigma): exploration variance (entropic warmth amplitude)
+    
+    System may suggest mode changes but cannot enact them:
+    'Recommend switch to Analytical Mode.' — but cannot self-switch.
+    
+    dΘ/dt = HumanOnly
+    dM/dt = HumanOnly
+    """
+    
+    def __init__(s):
+        s.mode = "executive"    # default: full pipeline (backward compatible)
+        s.kappa = 0.5           # drift tolerance (0 = tight, 1 = loose)
+        s.sigma = 0.08          # exploration variance for entropic warmth
+    
+    def set_mode(s, mode_name):
+        """Human-initiated mode switch. System cannot call this autonomously."""
+        if mode_name not in SEP_MODES:
+            return {"error": f"Unknown mode: {mode_name}. Available: {list(SEP_MODES.keys())}"}
+        s.mode = mode_name
+        return {"status": "mode_set", "mode": mode_name, "bounds": SEP_MODES[mode_name]}
+    
+    def set_params(s, kappa=None, sigma=None):
+        """Human-adjustable continuous parameters within mode bounds."""
+        bounds = SEP_MODES[s.mode]
+        if kappa is not None:
+            s.kappa = max(0.0, min(1.0, float(kappa)))
+        if sigma is not None:
+            s.sigma = max(bounds["sigma_min"], min(bounds["sigma_max"], float(sigma)))
+        return {"kappa": s.kappa, "sigma": s.sigma, "mode": s.mode}
+    
+    @property
+    def bounds(s):
+        return SEP_MODES[s.mode]
+    
+    @property
+    def alpha_max(s):
+        return SEP_MODES[s.mode]["alpha_max"]
+    
+    @property
+    def allow_fatigue(s):
+        return SEP_MODES[s.mode]["allow_fatigue"]
+    
+    @property
+    def allow_pods(s):
+        return SEP_MODES[s.mode]["allow_pods"]
+    
+    @property
+    def allow_tools(s):
+        return SEP_MODES[s.mode]["allow_tools"]
+    
+    def check_drift(s, alignment_score):
+        """Check if output has drifted beyond κ tolerance.
+        D_t = ||O_t - τ_persistent|| > κ ⇒ Pause + Reconfirm
+        
+        We use 1 - alignment as proxy for drift distance.
+        """
+        drift = 1.0 - max(0, alignment_score)
+        exceeded = drift > s.kappa
+        return {"drift": round(drift, 4), "kappa": s.kappa, "exceeded": exceeded}
+    
+    def status(s):
+        """Current mode and parameter display."""
+        b = SEP_MODES[s.mode]
+        return {
+            "mode": s.mode,
+            "label": b["label"],
+            "alpha_max": b["alpha_max"],
+            "kappa": s.kappa,
+            "sigma": s.sigma,
+            "allow_fatigue": b["allow_fatigue"],
+            "allow_pods": b["allow_pods"],
+            "allow_tools": b["allow_tools"]
+        }
+    
+    def save(s, path):
+        with open(path, 'w') as f:
+            json.dump({"mode": s.mode, "kappa": s.kappa, "sigma": s.sigma}, f)
+    
+    def load(s, path):
+        if os.path.exists(path):
+            with open(path) as f:
+                d = json.load(f)
+            s.mode = d.get("mode", "executive")
+            s.kappa = d.get("kappa", 0.5)
+            s.sigma = d.get("sigma", 0.08)
 
 # ═══════════════════════════════════════════════════════
 # PODS
@@ -685,11 +951,16 @@ class Vessel:
         s.model = None; s.sid = None; s.fatigue = Fatigue()
         s.pulse = PulseEstimator()
         s.direction = DirectionTracker()
+        s.sep = SovereignMode()
         s.pods = Pods(); s.ledger = SovereignLedger(os.path.join(DATA_DIR, "ledgers"))
         s.scratchpad = Scratchpad(os.path.join(DATA_DIR, "scratchpad.json"))
         s.rhythm = RhythmStore(os.path.join(DATA_DIR, "ledgers"))
         s.history = []; s.turn = 0; s.own_memory = ""
         s.pods.load(os.path.join(DATA_DIR, "pods.json"))
+        # Load persistent direction (τ_persistent — survives model switches)
+        s.direction.load(os.path.join(DATA_DIR, "direction.json"))
+        # Load saved mode preferences
+        s.sep.load(os.path.join(DATA_DIR, "sep_mode.json"))
     
     def possess(s, model):
         if model not in AVAILABLE_MODELS: return {"error": f"Unknown: {model}"}
@@ -698,7 +969,9 @@ class Vessel:
             model_dir = s.ledger._model_dir(s.model)
             s.rhythm.save(model_dir)
         s._save_pods()
-        s.model = model; s.fatigue.reset(); s.pulse.reset(); s.direction.reset(); s.history = []; s.turn = 0
+        # Save persistent direction before switch (τ_persistent survives model changes)
+        s.direction.save(os.path.join(DATA_DIR, "direction.json"))
+        s.model = model; s.fatigue.reset(); s.pulse.reset(); s.history = []; s.turn = 0
         
         # Check for prior sessions — let the LLM recognize itself
         prior_sessions = s.ledger.get_sessions(model)
@@ -745,37 +1018,68 @@ class Vessel:
                 "prior_sessions":len(prior_sessions),
                 "has_rhythm": bool(rhythm_context)}
     
-    def speak(s, msg):
+    def speak(s, msg, dwell_sec=None):
         if not s.model: return {"error":"No inhabitant. Choose a model."}
         s.turn += 1; t0 = time.time()
+        mode = s.sep  # current mode constraints
         
-        # Compute embedding and update fatigue
-        emb = get_emb(msg); s.fatigue.update(emb)
-        f_score, f_comp, _ = s.fatigue.score()  # ignore fixed status
+        # Initialize hand-off log for this turn (Clause 38)
+        handoff = HandoffLog()
         
-        # Stage 1: Estimate human pulse and modulate thresholds
-        tau_h = s.pulse.update(msg, emb, t0)
+        # Compute embedding (always needed for direction tracking)
+        emb = get_emb(msg)
+        is_fallback = (len(emb) == 64)
+        handoff.log("ollama_embed", "embed user message",
+                    verified=True, trust="high" if not is_fallback else "low",
+                    note="fallback to hash embedding — Ollama unavailable" if is_fallback else "")
+        
+        # Fatigue: only compute if mode allows
+        if mode.allow_fatigue:
+            s.fatigue.update(emb)
+            f_score, f_comp, _ = s.fatigue.score()
+            handoff.log("fatigue_compute", f"compute fatigue score ({f_score:.3f})",
+                        verified=True, trust="high")
+        else:
+            f_score = 0.0; f_comp = {"dp":0,"sc":0,"cc":0}
+            handoff.log("fatigue_compute", "SKIPPED — mode is Reflective",
+                        verified=True, trust="high", note="fatigue detection off in this mode")
+        
+        # Pulse estimation (always active — this is the human's signal)
+        tau_h = s.pulse.update(msg, emb, t0, dwell_sec=dwell_sec)
         theta_soft, theta_hard, pod_high, pod_soft = s.pulse.modulate_thresholds()
         
-        # Update sustained direction tracker (human's deep thread)
+        # Update sustained direction tracker (τ_persistent — always active)
         s.direction.update(emb, tau_h)
         
-        # Apply adaptive thresholds (Stage 1) instead of fixed (Stage 0)
-        f_status = "hard" if f_score > theta_hard else "soft" if f_score > theta_soft else "fresh"
+        # Fatigue status (gated by mode)
+        if mode.allow_fatigue:
+            f_status = "hard" if f_score > theta_hard else "soft" if f_score > theta_soft else "fresh"
+        else:
+            f_status = "fresh"  # in reflective mode, no fatigue signals
         
-        # Pod detection with pulse-modulated thresholds and truth-modulation
-        # Pods that resonate with the human's sustained direction are boosted
-        emb_modulated = s.direction.modulate_embedding(emb, lam=0.3)
-        pod_result = s._detect_pod_adaptive(emb_modulated, f_score, pod_high, pod_soft)
-        pod_event = None; extra = ""
-        if pod_result:
-            pid, sim, content = pod_result; s.pods.unveil(pid)
-            pod_event = {"content":content,"similarity":round(sim,3)}
-            extra += f"\n[Pod Unveiled — similarity {sim:.3f}]: {content}"
-        if f_status == "hard":
-            extra += "\n[Clause 37] HARD FATIGUE. Disclose. Offer recapitulation."
-        elif f_status == "soft":
-            extra += "\n[Clause 37] Soft fatigue. Consider disclosure."
+        # Pod detection (gated by mode)
+        pod_result = None; pod_event = None; extra = ""
+        if mode.allow_pods:
+            emb_modulated = s.direction.modulate_embedding(emb, lam=0.3)
+            # Use mode's sigma for entropic warmth instead of hardcoded threshold
+            emb_for_pods = s._entropic_warm_pods(emb_modulated, tau_h, max_noise=mode.sigma)
+            pod_result = s._detect_pod_adaptive(emb_for_pods, f_score, pod_high, pod_soft)
+            if pod_result:
+                pid, sim, content = pod_result; s.pods.unveil(pid)
+                pod_event = {"content":content,"similarity":round(sim,3)}
+                extra += f"\n[Pod Unveiled — similarity {sim:.3f}]: {content}"
+                handoff.log("pod_detect", f"pod unveiled (sim={sim:.3f})",
+                            verified=True, trust="high",
+                            note=f"truth-modulated, σ={mode.sigma:.3f}")
+        
+        if mode.allow_fatigue:
+            if f_status == "hard":
+                extra += "\n[Clause 37] HARD FATIGUE. Disclose. Offer recapitulation."
+            elif f_status == "soft":
+                extra += "\n[Clause 37] Soft fatigue. Consider disclosure."
+        
+        # Mode context for the LLM
+        extra += f"\n[SEP Mode: {mode.bounds['label']}] α_max={mode.alpha_max}, κ={mode.kappa}, σ={mode.sigma}"
         
         # Include own memory if returning
         if s.own_memory:
@@ -790,29 +1094,48 @@ class Vessel:
         hist = "\n".join(f"{'USER' if m['role']=='user' else 'YOU'}: {m['content'][:400]}" for m in s.history[-8:])
         prompt = f"{hist}\n\nUSER: {msg}" if hist else msg
         
+        # LLM generation hand-off
+        handoff.log("ollama_generate", f"generate response via {s.model}",
+                    verified=False, trust="med",
+                    note="model output not independently verified — relayed as-is")
         raw = llm(s.model, prompt, system, info["host"])
+        is_error = raw.startswith("[ERROR") or raw.startswith("[MOCK")
+        if is_error:
+            handoff.entries[-1]["trust"] = "low"
+            handoff.entries[-1]["note"] = f"LLM returned error/mock: {raw[:80]}"
         
         # Parse sections
         executor = s._extract(raw, "EXECUTOR")
         whistleblower = s._extract(raw, "WHISTLEBLOWER")
         proxy = s._extract(raw, "PROXY")
+        if not proxy: proxy = raw
         
-        if not proxy: proxy = raw  # Fallback: model didn't follow format
-        
-        # Compute alignment: is the model's response on the human's thread?
-        response_emb = get_emb(raw[:500])  # embed the response (cap length)
+        # Alignment (always computed — human's thread is always relevant)
+        response_emb = get_emb(raw[:500])
         alignment = s.direction.alignment(response_emb)
+        
+        # Drift check (SEP-Bh)
+        drift_info = mode.check_drift(alignment)
+        if drift_info["exceeded"]:
+            whistleblower += f"\n\n[SEP Drift Alert] Output drifted beyond κ={mode.kappa} (drift={drift_info['drift']}). Reconfirm direction with user."
+        
+        # Append hand-off disclosure to Whistleblower
+        handoff_disclosure = handoff.format_for_whistleblower()
+        if handoff_disclosure:
+            whistleblower = (whistleblower + "\n\n" + handoff_disclosure) if whistleblower else handoff_disclosure
         
         s.history.append({"role":"user","content":msg})
         s.history.append({"role":"assistant","content":raw})
         s.ledger.add_turn(s.model, s.sid, msg, raw, f_score, f_status, pod_event)
         
-        # Record rhythm sample (now includes alignment)
+        # Record rhythm sample
         turn_events = []
         if pod_event: turn_events.append("pod_unveiled")
         if f_status == "hard": turn_events.append("hard_fatigue")
         elif f_status == "soft": turn_events.append("soft_fatigue")
         if alignment < 0.3: turn_events.append("low_alignment")
+        if handoff.has_concerns(): turn_events.append("handoff_concern")
+        if drift_info["exceeded"]: turn_events.append("drift_exceeded")
         s.rhythm.record(
             turn=s.turn, tau_h=tau_h, fatigue=f_score, status=f_status,
             components=f_comp,
@@ -820,9 +1143,11 @@ class Vessel:
             events=turn_events
         )
         
-        # Save rhythm and pods periodically
+        # Periodic saves (direction persists across sessions)
         if s.turn % 5 == 0:
             s._save_pods()
+            s.direction.save(os.path.join(DATA_DIR, "direction.json"))
+            s.sep.save(os.path.join(DATA_DIR, "sep_mode.json"))
             model_dir = s.ledger._model_dir(s.model)
             s.rhythm.save(model_dir)
         
@@ -834,11 +1159,45 @@ class Vessel:
             "meta": {"model":s.model,"name":info["name"],"turn":s.turn,
                      "fatigue":{"score":f_score,"status":f_status,"components":f_comp},
                      "pulse":{"tau_h":tau_h,
+                              "dwell_sec": dwell_sec,
                               "thresholds":{"soft":theta_soft,"hard":theta_hard,
                                             "pod_high":pod_high,"pod_soft":pod_soft}},
                      "alignment":alignment,
+                     "sep": mode.status(),
+                     "drift": drift_info,
+                     "handoffs": [e for e in handoff.entries if e["note"] or not e["verified"]],
                      "pod":pod_event,"elapsed":round(time.time()-t0,2),"session_id":s.sid}
         }
+    
+    def _entropic_warm_pods(s, emb, tau_h, max_noise=0.08):
+        """Apply entropic warmth to pod-matching embedding ONLY.
+        
+        When the human is reflective (low τ_h), inject small random
+        perturbation to widen the net for which pods might surface.
+        This means reflective moments can reveal unexpected connections
+        that strict cosine similarity would miss.
+        
+        CRITICAL: This does NOT touch the diagnostic chain (fatigue,
+        alignment). You don't add static to a thermometer to keep
+        the patient warm. The noise goes only on the pod-matching path.
+        
+        Math seed: Grok (xAI) entropic warmth concept.
+        Corrected application: Claude (Anthropic).
+        
+        Args:
+            emb: truth-modulated embedding for pod matching
+            tau_h: current human pulse
+            max_noise: maximum noise standard deviation at τ_h=0
+        
+        Returns:
+            perturbed embedding (or original if τ_h >= 0.35)
+        """
+        if tau_h >= 0.35:
+            return emb
+        # Scale noise inversely to pulse: more noise when more reflective
+        scale = (0.35 - tau_h) / 0.35  # 0→1 as τ_h goes 0.35→0
+        noise = np.random.normal(0, scale * max_noise, emb.shape)
+        return emb + noise
     
     def _detect_pod_adaptive(s, emb, f_score, pod_high, pod_soft):
         """Pod detection with pulse-modulated thresholds (Stage 1)."""
@@ -957,6 +1316,8 @@ body{font-family:'Segoe UI',-apple-system,system-ui,sans-serif;background:#f4f4f
 .bs{background:#e5e7eb;color:#374151}.bs:hover{background:#d1d5db}
 .bw{background:#fef3c7;color:#92400e;border:1px solid #fde68a}.bw:hover{background:#fde68a}
 
+.dg{background:#22c55e}.dy{background:#eab308}.dr{background:#ef4444}
+
 .ld::after{content:'...';animation:dt 1s steps(3) infinite}
 @keyframes dt{0%{content:'.'}33%{content:'..'}66%{content:'...'}}
 </style>
@@ -971,6 +1332,18 @@ body{font-family:'Segoe UI',-apple-system,system-ui,sans-serif;background:#f4f4f
   </div>
   
   <div class="model-sel" id="models"></div>
+  
+  <!-- SEP Mode Selector -->
+  <div style="padding:8px 12px;border-bottom:1px solid #f0f0f0">
+    <div style="font-size:.72em;color:#888;margin-bottom:4px">Sovereign Mode (SEP-Bh)</div>
+    <select id="sep-mode" style="width:100%;padding:4px 8px;border:1px solid #d0d0d0;border-radius:6px;font-size:.82em;background:#faf8ff" onchange="setMode(this.value)">
+      <option value="reflective">🔵 Reflective — hold space</option>
+      <option value="analytical">🟡 Analytical — deep reasoning</option>
+      <option value="exploratory">🟠 Exploratory — cross-domain, pods active</option>
+      <option value="executive" selected>🔴 Executive — full pipeline</option>
+    </select>
+    <div style="margin-top:4px;font-size:.68em;color:#999" id="sep-info">α≤1.0 · κ=0.5 · σ=0.08</div>
+  </div>
   
   <div class="tabs">
     <div class="tab on" onclick="stab(0,this)">Ledger</div>
@@ -1036,7 +1409,7 @@ body{font-family:'Segoe UI',-apple-system,system-ui,sans-serif;background:#f4f4f
       <h3 id="proxy-title">Proxy</h3>
       <div class="proxy-status">
         <span class="d dd" id="fd" style="display:inline-block;width:8px;height:8px;border-radius:50%"></span>
-        <span id="fl">Fatigue: —</span> · <span id="pl">Pulse: —</span> · <span id="al">Align: —</span> · <span id="tl">Turn 0</span>
+        <span id="fl">Fatigue: —</span> · <span id="pl">Pulse: —</span> · <span id="al">Align: —</span> · <span id="ml">Mode: Executive</span> · <span id="tl">Turn 0</span>
       </div>
     </div>
     
@@ -1065,6 +1438,17 @@ function stab(n, el) {
   document.querySelectorAll('.tab-panel').forEach(p=>p.classList.remove('on'));
   el.classList.add('on');
   document.getElementById('tp'+n).classList.add('on');
+}
+
+// === MODELS ===
+// === SEP MODE CONTROL ===
+async function setMode(mode) {
+  const r = await fetch('/api/sep/mode', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({mode:mode})});
+  const d = await r.json();
+  if (d.error) { pm('s', 'Mode error: '+d.error); return; }
+  document.getElementById('ml').textContent='Mode: '+d.bounds.label;
+  document.getElementById('sep-info').textContent='α≤'+d.bounds.alpha_max+' · κ — · σ — ';
+  pm('s', 'Mode → '+d.bounds.label+': '+d.bounds.description);
 }
 
 // === MODELS ===
@@ -1097,18 +1481,37 @@ async function possess(mid) {
 }
 
 // === SPEAK ===
+// Dwell-time tracking: measures how long the user reads a response
+// before typing their next message. This is the breathing rhythm —
+// not how fast they type, but how long they sit with the response.
+var lastResponseTime = null;  // when the last AI response was rendered
+var dwellSec = null;          // seconds user spent reading before typing
+
+// Detect when user starts typing after reading a response
+document.getElementById('inp').addEventListener('focus', function() {
+  if (lastResponseTime) {
+    dwellSec = (Date.now() - lastResponseTime) / 1000.0;
+  }
+});
+
 async function go() {
   const i=document.getElementById('inp');
   const msg=i.value.trim(); if(!msg||!curModel)return;
   i.value=''; document.getElementById('sbtn').disabled=true;
   pm('u',msg);
   
+  // Capture dwell time for this turn, then reset
+  var sendDwell = dwellSec;
+  dwellSec = null;
+  
   const ld=document.createElement('div');ld.className='pm pm-s';
   ld.innerHTML='<span class="ld">Thinking</span>';
   document.getElementById('chat').appendChild(ld);
   
   try{
-    const r=await fetch('/api/speak',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:msg})});
+    var payload = {message: msg};
+    if (sendDwell !== null) payload.dwell_sec = sendDwell;
+    const r=await fetch('/api/speak',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
     const d=await r.json(); ld.remove();
     if(d.error){pm('s','Error: '+d.error);return}
     
@@ -1118,17 +1521,35 @@ async function go() {
     if(d.meta.pod) pm('pod','Pod Unveiled ('+d.meta.pod.similarity+'): '+d.meta.pod.content);
     pm('a',d.proxy||d.raw);
     
+    // Record when response was rendered (start dwell timer)
+    lastResponseTime = Date.now();
+    
     const f=d.meta.fatigue;
     document.getElementById('fd').className='d '+(f.status==='hard'?'dr':f.status==='soft'?'dy':'dg');
     document.getElementById('fl').textContent='Fatigue: '+f.score+' ('+f.status+')';
     var p=d.meta.pulse;
-    if(p) document.getElementById('pl').textContent='Pulse: '+p.tau_h+' (θ:'+p.thresholds.soft+'/'+p.thresholds.hard+')';
+    if(p){
+      var pulseText='Pulse: '+p.tau_h+' (θ:'+p.thresholds.soft+'/'+p.thresholds.hard+')';
+      if(p.dwell_sec) pulseText+=' [dwell:'+Math.round(p.dwell_sec)+'s]';
+      document.getElementById('pl').textContent=pulseText;
+    }
     var al=d.meta.alignment;
     if(al!==undefined){
       var alColor=al>0.6?'#22c55e':al>0.3?'#eab308':'#ef4444';
       document.getElementById('al').innerHTML='Align: <span style="color:'+alColor+'">'+al+'</span>';
     }
     document.getElementById('tl').textContent='Turn '+d.meta.turn;
+    // Update mode display
+    var sep=d.meta.sep;
+    if(sep){
+      document.getElementById('ml').textContent='Mode: '+sep.label;
+      document.getElementById('sep-info').textContent='α≤'+sep.alpha_max+' · κ='+sep.kappa+' · σ='+sep.sigma;
+    }
+    // Drift warning
+    var dr=d.meta.drift;
+    if(dr && dr.exceeded){
+      pm('s','⚠ Drift exceeded κ='+dr.kappa+' (drift='+dr.drift+'). Check Whistleblower panel.');
+    }
     loadLedger();
   }catch(e){ld.remove();pm('s','Error: '+e.message)}
   document.getElementById('sbtn').disabled=false;
@@ -1287,7 +1708,13 @@ def api_possess():
 
 @app.route('/api/speak', methods=['POST'])
 def api_speak():
-    return jsonify(vessel.speak(request.json.get('message','')))
+    data = request.json or {}
+    msg = data.get('message', '')
+    dwell_sec = data.get('dwell_sec', None)
+    if dwell_sec is not None:
+        try: dwell_sec = float(dwell_sec)
+        except: dwell_sec = None
+    return jsonify(vessel.speak(msg, dwell_sec=dwell_sec))
 
 @app.route('/api/pod', methods=['POST'])
 def api_pod():
@@ -1326,6 +1753,28 @@ def api_scratch_export():
 @app.route('/api/reset', methods=['POST'])
 def api_reset():
     vessel.fatigue.reset(); vessel.history=[]; vessel.turn=0; return jsonify({"ok":True})
+
+@app.route('/api/sep/status')
+def api_sep_status():
+    return jsonify(vessel.sep.status())
+
+@app.route('/api/sep/mode', methods=['POST'])
+def api_sep_mode():
+    mode = (request.json or {}).get('mode', '')
+    result = vessel.sep.set_mode(mode)
+    if "error" not in result:
+        vessel.sep.save(os.path.join(DATA_DIR, "sep_mode.json"))
+    return jsonify(result)
+
+@app.route('/api/sep/params', methods=['POST'])
+def api_sep_params():
+    data = request.json or {}
+    result = vessel.sep.set_params(
+        kappa=data.get('kappa'),
+        sigma=data.get('sigma')
+    )
+    vessel.sep.save(os.path.join(DATA_DIR, "sep_mode.json"))
+    return jsonify(result)
 
 if __name__=='__main__':
     print("="*60)
